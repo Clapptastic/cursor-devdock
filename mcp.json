@@ -1,0 +1,13 @@
+{
+  "version": "1.0.0",
+  "providers": [
+    {
+      "id": "task-master-mcp",
+      "name": "Task Master MCP",
+      "type": "stdio",
+      "command": "node mcp-server/server.js",
+      "cwd": "${workspaceFolder}/claude-task-master"
+    }
+  ],
+  "defaultProvider": "task-master-mcp"
+} 
