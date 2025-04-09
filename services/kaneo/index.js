@@ -83,6 +83,37 @@ app.get('/api/services', (req, res) => {
   }
 });
 
+// Alias endpoint for MCP REST API to use
+app.post('/apis', (req, res) => {
+  try {
+    const { name, url, description, type, features } = req.body;
+    
+    if (!name || !url) {
+      return res.status(400).json({ error: 'Service name and URL are required' });
+    }
+    
+    const serviceId = Date.now().toString();
+    const service = {
+      id: serviceId,
+      name,
+      url,
+      description: description || '',
+      type: type || 'generic',
+      features: features || [],
+      status: 'active',
+      registeredAt: new Date().toISOString()
+    };
+    
+    registeredServices.set(serviceId, service);
+    logger.info(`Service registered: ${name} at ${url}`);
+    
+    res.status(201).json(service);
+  } catch (error) {
+    logger.error('Error registering service:', error);
+    res.status(500).json({ error: 'Failed to register service' });
+  }
+});
+
 // API to get service by ID
 app.get('/api/services/:id', (req, res) => {
   try {

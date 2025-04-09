@@ -1,12 +1,18 @@
 import React, { useEffect, useState } from 'react';
-import { checkAllServices } from '../lib/api';
+import axios from 'axios';
 
 interface ServiceStatusProps {
   showDetails?: boolean;
 }
 
+interface Service {
+  name: string;
+  url: string;
+  status: string;
+}
+
 const ServiceStatus: React.FC<ServiceStatusProps> = ({ showDetails = false }) => {
-  const [services, setServices] = useState([]);
+  const [services, setServices] = useState<Service[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -14,9 +20,14 @@ const ServiceStatus: React.FC<ServiceStatusProps> = ({ showDetails = false }) =>
     const fetchStatus = async () => {
       try {
         setLoading(true);
-        const results = await checkAllServices();
-        setServices(results);
-        setError('');
+        const response = await axios.get('/api/services');
+        
+        if (response.data && Array.isArray(response.data)) {
+          setServices(response.data);
+          setError('');
+        } else {
+          throw new Error('Invalid response format');
+        }
       } catch (err) {
         setError('Failed to check service status');
         console.error('Error checking services:', err);

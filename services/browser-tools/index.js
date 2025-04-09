@@ -328,24 +328,6 @@ app.delete('/api/logs', (req, res) => {
   res.json({ success: true });
 });
 
-// Register with MCP Konnect
-async function registerWithMcpKonnect() {
-  try {
-    const response = await axios.post(`${MCP_REST_API_URL}/api/services/register`, {
-      name: 'Browser Tools',
-      url: `http://browser-tools:${PORT}`,
-      description: 'Browser monitoring and debugging tools',
-      type: 'monitoring'
-    });
-    
-    logger.info('Registered with MCP Konnect via REST API');
-  } catch (error) {
-    logger.error('Failed to register with MCP Konnect:', error);
-    // Retry after a delay
-    setTimeout(registerWithMcpKonnect, 10000);
-  }
-}
-
 // Generate demo data
 function generateDemoData() {
   // Browser logs
@@ -392,6 +374,7 @@ server.listen(PORT, () => {
   // Generate demo data
   generateDemoData();
   
-  // Register with MCP Konnect after a delay to ensure it's up
-  setTimeout(registerWithMcpKonnect, 5000);
+  // Note: This service is designed to be connected to from external applications
+  // through the cursor-devdock-sdk, not via internal service registration.
+  // See sdk/lib/services/browser-tools-connector.ts for integration details.
 }); 

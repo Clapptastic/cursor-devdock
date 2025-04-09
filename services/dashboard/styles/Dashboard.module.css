@@ -232,4 +232,40 @@
   padding: 1rem 2rem;
   text-align: center;
   font-size: 0.8rem;
+}
+
+.service-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 1rem;
+}
+
+.view-button {
+  display: inline-block;
+  padding: 0.5rem 1rem;
+  background-color: #4f46e5;
+  color: white;
+  border-radius: 0.25rem;
+  font-weight: 500;
+  transition: background-color 0.2s;
+}
+
+.docs-button {
+  display: inline-block;
+  padding: 0.5rem 1rem;
+  background-color: #f3f4f6;
+  color: #4b5563;
+  border-radius: 0.25rem;
+  font-weight: 500;
+  margin-left: 0.5rem;
+  transition: background-color 0.2s;
+}
+
+.docs-button:hover {
+  background-color: #e5e7eb;
+}
+
+.documentation-card {
+  border-left: 4px solid #8b5cf6 !important;
 } 

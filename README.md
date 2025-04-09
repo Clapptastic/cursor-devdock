@@ -1,156 +1,77 @@
 # Cursor DevDock
 
-A containerized development environment that enhances the AI coding experience inside Cursor by leveraging the Model Context Protocol (MCP) server functionality.
+Cursor DevDock is a development toolkit that provides monitoring, debugging, and visualization tools for your applications.
 
-## Features
+## Services
 
-- **MCP Server Integration** - Seamlessly integrate with Cursor's MCP using Kong MCP Konnect for API management
-- **AI Task Management** - Leverage Claude Task Master for intelligent task routing and management
-- **Web UI Interface** - Access all tools through a unified localhost dashboard at http://localhost:3000
-- **TypeScript Debug Tools** - Analyze TypeScript code with integrated debugging visualization
-- **Scraping Capabilities** - Web scraping with standard and stealth modes using firecrawl-mcp-server
-- **Browser Monitoring** - Track and analyze browser-based events and workflows
-- **Debug Visualization** - Visualize complex data structures and debug information
-- **Dependency Management** - Automatically track and update dependencies with Renovate
-- **Kaneo Dashboard** - Access the Kaneo workflow management interface
+- **MCP Konnect**: Service registry and API gateway
+- **MCP REST API**: REST API for interacting with DevDock services
+- **Browser Tools**: Browser monitoring and debugging tools
+- **Claude Task Master**: AI task management and automation
+- **Dashboard**: Main dashboard UI for DevDock
+- **Debug Visualizer**: Tools for visualizing data structures and project information
+- **Kaneo**: Dashboard for services
+- **Scraper**: Web scraping service
+- **Renovate**: Dependency management
 
-## Quick Start
+## Getting Started
 
-### Prerequisites
+1. Clone this repository
+2. Run `./init.sh` to start the services
+3. Access the dashboard at http://localhost:10003
 
-- Docker and Docker Compose installed
-- Node.js (for local development)
-- Git
+## Integrating with Your Application
 
-### Installation
+The DevDock services are designed to be integrated with your application via the SDK:
 
-1. Clone this repository:
-   ```bash
-   git clone https://github.com/yourusername/cursor-devdock.git
-   cd cursor-devdock
-   ```
+### Node.js/TypeScript
 
-2. Run the init script to set up and start all services:
-   ```bash
-   chmod +x init.sh
-   ./init.sh
-   ```
+```javascript
+// Install the SDK
+npm install cursor-devdock-sdk --save-dev
 
-3. Access the dashboard at [http://localhost:3000](http://localhost:3000)
+// In your application
+const { CursorDevDockSDK } = require('cursor-devdock-sdk');
 
-## Available Services
+// Initialize the SDK
+const devdock = new CursorDevDockSDK({
+  projectName: 'Your Project Name',
+  projectPath: __dirname
+});
 
-| Service | URL | Description |
-|---------|-----|-------------|
-| Dashboard | [http://localhost:3000](http://localhost:3000) | Main UI for accessing all tools |
-| MCP Konnect | [http://localhost:8000](http://localhost:8000) | API management and registration |
-| MCP REST API | [http://localhost:8001](http://localhost:8001) | REST interface for MCP functionality |
-| Claude Task Master | [http://localhost:8002](http://localhost:8002) | AI task routing service |
-| Scraper | [http://localhost:8003](http://localhost:8003) | Web scraping service with firecrawl integration |
-| Browser Tools | [http://localhost:8004](http://localhost:8004) | Browser monitoring tools |
-| Debug Visualizer | [http://localhost:8005](http://localhost:8005) | Debug visualization tools |
-| Kaneo | [http://localhost:3333](http://localhost:3333) | Kaneo dashboard for workflow management |
+// Start the SDK
+await devdock.init();
 
-## Components
+// Use the browser tools
+const browserTools = devdock.getService('browserTools');
+await browserTools.captureEvent({
+  type: 'log',
+  timestamp: new Date().toISOString(),
+  source: 'app.js',
+  data: { message: 'Application started' }
+});
 
-### 1. MCP Server Integration
-- Kong MCP Konnect for managing APIs and connections
-- MCP REST API for exposing custom APIs to Cursor
-
-### 2. AI Task Management
-- Claude Task Master for AI task routing
-- Web-based UI for interacting with Claude-style prompts
-- Task routing to appropriate submodules via MCP
-
-### 3. Web UI Interface
-- Unified dashboard for accessing all tools
-- TypeScript debug info via TypeScript SDK integration
-- VSCode Debug Visualizer-style data visualization
-- Kaneo dashboard integration via iframe
-
-### 4. Scraping and Stealth
-- Web scraping with Firecrawl integration
-- Stealth mode for browser behavior simulation
-- Batch and crawl capabilities
-
-### 5. Dependency Management
-- Renovate for tracking and updating dependencies
-- Configuration stored in config/renovate
-
-### 6. Browser Monitoring
-- Browser-based event logging
-- Real-time console and network monitoring
-- WebSocket-based live updates
-
-## Configuration
-
-### MCP Konnect
-
-MCP Konnect configuration is stored in `config/mcp-konnect/config.yaml`. You can edit this file to register additional APIs or modify existing ones.
-
-### Renovate
-
-Renovate configuration is stored in `config/renovate/config.json`. You can customize dependency update rules, scheduling, and more.
-
-## Developer Guide
-
-### Project Structure
-
-```
-cursor-devdock/
-├── config/                 # Configuration files
-│   ├── mcp-konnect/        # MCP Konnect configuration
-│   └── renovate/           # Renovate configuration
-├── services/               # Service implementations
-│   ├── browser-tools/      # Browser monitoring tools
-│   ├── claude-task-master/ # AI task routing service
-│   ├── dashboard/          # Main UI dashboard
-│   ├── debug-visualizer/   # Debug visualization tools
-│   ├── kaneo/              # Kaneo dashboard integration
-│   ├── mcp-rest-api/       # REST API for MCP
-│   └── scraper/            # Web scraping service
-├── docker-compose.yml      # Docker Compose configuration
-├── init.sh                 # Initialization script
-└── README.md               # Documentation
+// Use the debug visualizer
+const debugVisualizer = devdock.getService('debugVisualizer');
+await debugVisualizer.visualizeJSON({
+  users: [
+    { id: 1, name: 'John' },
+    { id: 2, name: 'Jane' }
+  ]
+}, 'User Data');
 ```
 
-### Adding a New Service
+## Service URLs
 
-1. Create a new directory under `services/` for your service
-2. Create a Dockerfile and necessary implementation files
-3. Add the service to `docker-compose.yml`
-4. Register the service's API with MCP Konnect
+- Dashboard: http://localhost:10003
+- MCP Konnect: http://localhost:10000
+- MCP REST API: http://localhost:10001
+- Claude Task Master: http://localhost:10002
+- Scraper: http://localhost:10004
+- Browser Tools: http://localhost:10005
+- Debug Visualizer: http://localhost:10006
+- Kaneo: http://localhost:10007
 
-Example:
-```yaml
-# In docker-compose.yml
-services:
-  # ... existing services ...
-  
-  your-service:
-    build:
-      context: ./services/your-service
-    ports:
-      - "8099:8099"
-    environment:
-      - MCP_REST_API_URL=http://mcp-rest-api:8001
-```
+## Documentation
 
-Then register your service:
-```bash
-curl -X POST http://localhost:8001/register-api \
-  -H "Content-Type: application/json" \
-  -d '{"name":"your-service", "url":"http://your-service:8099", "description":"Your service description"}'
-```
-
-### Extending the System
-
-The system is designed to be modular and extensible. You can add new services or enhance existing ones as needed:
-
-1. **Adding a new API**: Create a service and register it with MCP Konnect
-2. **Adding a new UI component**: Add to the dashboard's navigation and create a corresponding page
-3. **Enhancing scraping**: Add new endpoints to the scraper service
-
-## Contributing
-
-Contributions are welcome! Please feel free to submit a Pull Request. 
+For more details on integrating with each service, refer to the SDK documentation in the `sdk/` directory. 
