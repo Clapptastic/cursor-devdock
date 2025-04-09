@@ -1,252 +1,209 @@
-import React, { useState, useEffect } from 'react';
-import axios from 'axios';
-import styles from '../styles/Dashboard.module.css';
+import React, { useEffect, useState } from 'react';
+import Head from 'next/head';
+import Link from 'next/link';
+import { checkAllServices } from '../lib/api';
+import ServiceStatus from '../components/ServiceStatus';
 
 const Dashboard = () => {
-  const [taskResponses, setTaskResponses] = useState([]);
-  const [apiConnections, setApiConnections] = useState([]);
-  const [logs, setLogs] = useState([]);
-  const [scrapeUrl, setScrapeUrl] = useState('');
-  const [scrapeResult, setScrapeResult] = useState(null);
-  const [isLoading, setIsLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState('dashboard');
+  const [services, setServices] = useState([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Fetch data from services
-    const fetchData = async () => {
+    const fetchServices = async () => {
       try {
-        const taskRes = await axios.get('/api/claude-tasks');
-        setTaskResponses(taskRes.data);
-
-        const apiRes = await axios.get('/api/connections');
-        setApiConnections(apiRes.data);
-
-        const logsRes = await axios.get('/api/browser-logs');
-        setLogs(logsRes.data);
+        const serviceStatus = await checkAllServices();
+        setServices(serviceStatus);
       } catch (error) {
-        console.error('Error fetching data:', error);
+        console.error('Error fetching service status:', error);
+      } finally {
+        setLoading(false);
       }
     };
 
-    fetchData();
-    const interval = setInterval(fetchData, 5000);
-    return () => clearInterval(interval);
+    fetchServices();
   }, []);
 
-  const handleScrape = async (e) => {
-    e.preventDefault();
-    if (!scrapeUrl) return;
-    
-    setIsLoading(true);
-    try {
-      const res = await axios.post('/api/scrape', { 
-        url: scrapeUrl,
-        stealthMode: false 
-      });
-      setScrapeResult(res.data);
-    } catch (error) {
-      console.error('Error during scraping:', error);
-      setScrapeResult({ error: 'Failed to scrape the URL' });
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
   return (
-    <div className={styles.container}>
-      <header className={styles.header}>
-        <h1>Cursor DevDock</h1>
-        <nav className={styles.nav}>
-          <button 
-            className={activeTab === 'dashboard' ? styles.activeTab : ''}
-            onClick={() => setActiveTab('dashboard')}
-          >
-            Dashboard
-          </button>
-          <button 
-            className={activeTab === 'claude' ? styles.activeTab : ''}
-            onClick={() => setActiveTab('claude')}
-          >
-            Claude Task Master
-          </button>
-          <button 
-            className={activeTab === 'scraper' ? styles.activeTab : ''}
-            onClick={() => setActiveTab('scraper')}
-          >
-            Web Scraper
-          </button>
-          <button 
-            className={activeTab === 'browser' ? styles.activeTab : ''}
-            onClick={() => setActiveTab('browser')}
-          >
-            Browser Tools
-          </button>
-          <button 
-            className={activeTab === 'visualizer' ? styles.activeTab : ''}
-            onClick={() => setActiveTab('visualizer')}
-          >
-            Debug Visualizer
-          </button>
-          <button 
-            className={activeTab === 'typescript' ? styles.activeTab : ''}
-            onClick={() => setActiveTab('typescript')}
-          >
-            TypeScript Debug
-          </button>
-          <button 
-            className={activeTab === 'kaneo' ? styles.activeTab : ''}
-            onClick={() => setActiveTab('kaneo')}
-          >
-            Kaneo
-          </button>
-        </nav>
-      </header>
+    <div className="container">
+      <Head>
+        <title>Cursor DevDock Dashboard</title>
+      </Head>
 
-      <main className={styles.main}>
-        {activeTab === 'dashboard' && (
-          <div className={styles.dashboardGrid}>
-            <div className={styles.card}>
-              <h2>API Connections</h2>
-              <ul className={styles.connectionsList}>
-                {apiConnections.map((conn, i) => (
-                  <li key={i} className={styles.connectionItem}>
-                    <span className={styles.connectionName}>{conn.name}</span>
-                    <span className={
-                      conn.status === 'connected' ? styles.statusConnected : styles.statusDisconnected
-                    }>
-                      {conn.status}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-            
-            <div className={styles.card}>
-              <h2>Recent Tasks</h2>
-              <ul className={styles.taskList}>
-                {taskResponses.map((task, i) => (
-                  <li key={i} className={styles.taskItem}>
-                    <div className={styles.taskHeader}>
-                      <span className={styles.taskId}>Task #{task.id}</span>
-                      <span className={
-                        task.status === 'completed' ? styles.statusCompleted : 
-                        task.status === 'in_progress' ? styles.statusInProgress :
-                        styles.statusPending
-                      }>
-                        {task.status}
-                      </span>
-                    </div>
-                    <p className={styles.taskDescription}>{task.task}</p>
-                  </li>
-                ))}
-              </ul>
-            </div>
-            
-            <div className={styles.card}>
-              <h2>Browser Logs</h2>
-              <div className={styles.logsContainer}>
-                {logs.map((log, i) => (
-                  <div key={i} className={styles.logEntry}>
-                    <span className={styles.logTimestamp}>{new Date(log.timestamp).toLocaleTimeString()}</span>
-                    <span className={styles.logUrl}>{log.url}</span>
-                    <span className={styles.logEvent}>{log.event}</span>
-                  </div>
-                ))}
+      <div className="header">
+        <h1 className="title">Cursor DevDock Dashboard</h1>
+        <div className="status-container">
+          <ServiceStatus />
+        </div>
+      </div>
+
+      <main>
+        <div className="service-grid">
+          <Link href="/browser-tools">
+            <div className={`service-card ${services.find(s => s.name === 'Browser Tools')?.status === 'available' ? 'available' : 'unavailable'}`}>
+              <h2>Browser Tools</h2>
+              <p>Monitor and debug browser behavior with real-time logs for console events, network requests, and more.</p>
+              <div className="service-actions">
+                <span className="view-button">View Dashboard</span>
               </div>
             </div>
-          </div>
-        )}
+          </Link>
 
-        {activeTab === 'claude' && (
-          <div className={styles.fullFrame}>
-            <iframe 
-              src="http://localhost:8002" 
-              width="100%" 
-              height="100%" 
-              title="Claude Task Master"
-              className={styles.iframe}
-            />
-          </div>
-        )}
-
-        {activeTab === 'scraper' && (
-          <div className={styles.card}>
-            <h2>Web Scraper</h2>
-            <form onSubmit={handleScrape} className={styles.scraperForm}>
-              <input
-                type="url"
-                value={scrapeUrl}
-                onChange={(e) => setScrapeUrl(e.target.value)}
-                placeholder="Enter URL to scrape"
-                required
-                className={styles.urlInput}
-              />
-              <button type="submit" disabled={isLoading} className={styles.button}>
-                {isLoading ? 'Scraping...' : 'Scrape'}
-              </button>
-            </form>
-            
-            {scrapeResult && (
-              <div className={styles.scrapeResult}>
-                <h3>Results</h3>
-                <pre>{JSON.stringify(scrapeResult, null, 2)}</pre>
+          <Link href="/debug-visualizer">
+            <div className={`service-card ${services.find(s => s.name === 'Debug Visualizer')?.status === 'available' ? 'available' : 'unavailable'}`}>
+              <h2>Debug Visualizer</h2>
+              <p>Visualize complex data structures and debug information in an interactive format.</p>
+              <div className="service-actions">
+                <span className="view-button">View Visualizer</span>
               </div>
-            )}
-          </div>
-        )}
+            </div>
+          </Link>
 
-        {activeTab === 'browser' && (
-          <div className={styles.fullFrame}>
-            <iframe 
-              src="http://localhost:8004" 
-              width="100%" 
-              height="100%" 
-              title="Browser Tools"
-              className={styles.iframe}
-            />
-          </div>
-        )}
+          <Link href="/scraper">
+            <div className={`service-card ${services.find(s => s.name === 'Scraper')?.status === 'available' ? 'available' : 'unavailable'}`}>
+              <h2>Web Scraper</h2>
+              <p>Extract and parse data from websites with configurable selectors and stealth mode.</p>
+              <div className="service-actions">
+                <span className="view-button">Open Scraper</span>
+              </div>
+            </div>
+          </Link>
 
-        {activeTab === 'visualizer' && (
-          <div className={styles.fullFrame}>
-            <iframe 
-              src="http://localhost:8005/debug-visualizer" 
-              width="100%" 
-              height="100%" 
-              title="Debug Visualizer"
-              className={styles.iframe}
-            />
-          </div>
-        )}
+          <Link href="/claude-tasks">
+            <div className={`service-card ${services.find(s => s.name === 'Claude Task Master')?.status === 'available' ? 'available' : 'unavailable'}`}>
+              <h2>Claude Task Master</h2>
+              <p>Manage and monitor AI tasks with queue management and result tracking.</p>
+              <div className="service-actions">
+                <span className="view-button">View Tasks</span>
+              </div>
+            </div>
+          </Link>
 
-        {activeTab === 'typescript' && (
-          <div className={styles.fullFrame}>
-            <iframe 
-              src="/typescript-debug" 
-              width="100%" 
-              height="100%" 
-              title="TypeScript Debug"
-              className={styles.iframe}
-            />
-          </div>
-        )}
+          <Link href="/kaneo">
+            <div className={`service-card ${services.find(s => s.name === 'Kaneo')?.status === 'available' ? 'available' : 'unavailable'}`}>
+              <h2>Kaneo Dashboard</h2>
+              <p>Centralized control panel for managing MCP services and configurations.</p>
+              <div className="service-actions">
+                <span className="view-button">Open Kaneo</span>
+              </div>
+            </div>
+          </Link>
 
-        {activeTab === 'kaneo' && (
-          <div className={styles.fullFrame}>
-            <iframe 
-              src="http://localhost:3333" 
-              width="100%" 
-              height="100%" 
-              title="Kaneo Dashboard"
-              className={styles.iframe}
-            />
-          </div>
-        )}
+          <Link href="/service-status">
+            <div className="service-card status-card">
+              <h2>Service Status</h2>
+              <p>View detailed status information for all MCP services and components.</p>
+              <div className="service-actions">
+                <span className="view-button">Check Status</span>
+              </div>
+            </div>
+          </Link>
+        </div>
       </main>
 
-      <footer className={styles.footer}>
-        <p>Cursor DevDock - AI-Powered Local Dev Environment</p>
-      </footer>
+      <style jsx>{`
+        .container {
+          max-width: 1200px;
+          margin: 0 auto;
+          padding: 2rem;
+        }
+        
+        .header {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          margin-bottom: 2rem;
+          padding-bottom: 1rem;
+          border-bottom: 1px solid #e5e7eb;
+        }
+        
+        .title {
+          margin: 0;
+          color: #1a1a2e;
+          font-size: 2rem;
+        }
+        
+        .status-container {
+          display: flex;
+          align-items: center;
+        }
+        
+        .service-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+          gap: 1.5rem;
+        }
+        
+        .service-card {
+          padding: 1.5rem;
+          border-radius: 0.5rem;
+          background-color: white;
+          border: 1px solid #e5e7eb;
+          box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+          transition: transform 0.2s ease, box-shadow 0.2s ease;
+          cursor: pointer;
+          position: relative;
+          overflow: hidden;
+        }
+        
+        .service-card:hover {
+          transform: translateY(-5px);
+          box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        
+        .service-card.available::before {
+          content: '';
+          position: absolute;
+          top: 0;
+          left: 0;
+          width: 4px;
+          height: 100%;
+          background-color: #10b981;
+        }
+        
+        .service-card.unavailable::before {
+          content: '';
+          position: absolute;
+          top: 0;
+          left: 0;
+          width: 4px;
+          height: 100%;
+          background-color: #ef4444;
+        }
+        
+        .service-card h2 {
+          margin-top: 0;
+          margin-bottom: 0.5rem;
+          color: #1a1a2e;
+        }
+        
+        .service-card p {
+          color: #4b5563;
+          margin-bottom: 1.5rem;
+        }
+        
+        .service-actions {
+          display: flex;
+          justify-content: flex-end;
+        }
+        
+        .view-button {
+          padding: 0.5rem 1rem;
+          background-color: #1a1a2e;
+          color: white;
+          border-radius: 0.25rem;
+          font-size: 0.875rem;
+          font-weight: 500;
+          transition: background-color 0.2s ease;
+        }
+        
+        .view-button:hover {
+          background-color: #0f0f1a;
+        }
+        
+        .status-card {
+          background-color: #f8fafc;
+        }
+      `}</style>
     </div>
   );
 };

@@ -1,5 +1,5 @@
 import { NextApiRequest, NextApiResponse } from 'next';
-import axios from 'axios';
+import { scrapeURL } from '../../lib/api';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'POST') {
@@ -7,20 +7,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
   
   try {
-    const SCRAPER_URL = process.env.SCRAPER_URL || 'http://scraper:8003';
     const { url, selectors, stealthMode } = req.body;
     
     if (!url) {
       return res.status(400).json({ error: 'URL is required' });
     }
     
-    const endpoint = stealthMode ? '/stealth-scrape' : '/scrape';
-    const response = await axios.post(`${SCRAPER_URL}${endpoint}`, {
-      url,
-      selectors
-    });
+    const response = await scrapeURL(url, selectors, stealthMode);
     
     res.status(200).json(response.data);
   } catch (error) {
-    console.error('Error during
+    console.error('Error during scrape operation:', error);
+    res.status(500).json({ error: 'Failed to scrape the URL' });
+  }
 } 

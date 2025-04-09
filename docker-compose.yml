@@ -1,33 +1,33 @@
-version: '3.8'
-
 services:
-  # MCP Server Integration
+  # MCP Server Integration - using mock service
   mcp-konnect:
-    image: kong/mcp-konnect:latest
+    build:
+      context: ./services/kaneo
+      dockerfile: Dockerfile
     ports:
-      - "8000:8000"
+      - "10000:3333"
     volumes:
       - ./config/mcp-konnect:/etc/mcp-konnect
     environment:
-      - MCP_SERVER_HOST=0.0.0.0
-      - MCP_SERVER_PORT=8000
+      - PORT=3333
+    # This is now using our mock service
 
   mcp-rest-api:
     build:
       context: ./services/mcp-rest-api
     ports:
-      - "8001:8001"
+      - "10001:8001"
     depends_on:
       - mcp-konnect
     environment:
-      - MCP_KONNECT_URL=http://mcp-konnect:8000
+      - MCP_KONNECT_URL=http://mcp-konnect:3333
 
   # AI Task Management
   claude-task-master:
     build:
       context: ./services/claude-task-master
     ports:
-      - "8002:8002"
+      - "10002:8002"
     environment:
       - MCP_REST_API_URL=http://mcp-rest-api:8001
 
@@ -36,7 +36,7 @@ services:
     build:
       context: ./services/dashboard
     ports:
-      - "3000:3000"
+      - "10003:3000"
     depends_on:
       - mcp-konnect
       - mcp-rest-api
@@ -57,7 +57,7 @@ services:
     build:
       context: ./services/scraper
     ports:
-      - "8003:8003"
+      - "10004:8003"
     environment:
       - MCP_REST_API_URL=http://mcp-rest-api:8001
 
@@ -66,7 +66,7 @@ services:
     build:
       context: ./services/browser-tools
     ports:
-      - "8004:8004"
+      - "10005:8004"
     environment:
       - MCP_REST_API_URL=http://mcp-rest-api:8001
 
@@ -75,7 +75,7 @@ services:
     build:
       context: ./services/debug-visualizer
     ports:
-      - "8005:8005"
+      - "10006:8005"
     environment:
       - MCP_REST_API_URL=http://mcp-rest-api:8001
 
@@ -84,13 +84,13 @@ services:
     build:
       context: ./services/kaneo
     ports:
-      - "3333:3333"
+      - "10007:3333"
     environment:
       - MCP_REST_API_URL=http://mcp-rest-api:8001
 
-  # Dependency Management
+  # Dependency Management - using a different image
   renovate:
-    image: renovate/renovate:latest
+    image: ghcr.io/renovatebot/renovate:latest
     volumes:
       - ./config/renovate:/usr/src/app/config
       - /var/run/docker.sock:/var/run/docker.sock 

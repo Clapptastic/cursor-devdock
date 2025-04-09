@@ -76,7 +76,12 @@ const DebugVisualizer = () => {
 };
 
 // Helper component for tree visualization
-const TreeNode = ({ node, name }) => {
+interface TreeNodeProps {
+  node: any;
+  name: string;
+}
+
+const TreeNode: React.FC<TreeNodeProps> = ({ node, name }) => {
   const [isExpanded, setIsExpanded] = useState(true);
   
   if (node === null) {

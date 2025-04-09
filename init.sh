@@ -24,29 +24,29 @@ docker-compose ps
 
 # Register services with MCP Konnect if needed
 echo "Registering services with MCP Konnect..."
-curl -X POST http://localhost:8001/register-api \
+curl -X POST http://localhost:10001/register-api \
   -H "Content-Type: application/json" \
   -d '{"name":"claude-task-master", "url":"http://claude-task-master:8002", "description":"AI Task Routing Service"}'
 
-curl -X POST http://localhost:8001/register-api \
+curl -X POST http://localhost:10001/register-api \
   -H "Content-Type: application/json" \
   -d '{"name":"scraper", "url":"http://scraper:8003", "description":"Web Scraping Service"}'
 
-curl -X POST http://localhost:8001/register-api \
+curl -X POST http://localhost:10001/register-api \
   -H "Content-Type: application/json" \
   -d '{"name":"browser-tools", "url":"http://browser-tools:8004", "description":"Browser Monitoring Tools"}'
 
-curl -X POST http://localhost:8001/register-api \
+curl -X POST http://localhost:10001/register-api \
   -H "Content-Type: application/json" \
   -d '{"name":"debug-visualizer", "url":"http://debug-visualizer:8005", "description":"Debug Visualization Tools"}'
 
-curl -X POST http://localhost:8001/register-api \
+curl -X POST http://localhost:10001/register-api \
   -H "Content-Type: application/json" \
   -d '{"name":"kaneo", "url":"http://kaneo:3333", "description":"Kaneo Dashboard"}'
 
-curl -X POST http://localhost:8001/register-api \
+curl -X POST http://localhost:10001/register-api \
   -H "Content-Type: application/json" \
   -d '{"name":"typescript-debug", "url":"/typescript-debug", "description":"TypeScript Debug Tools"}'
 
 echo "Cursor DevDock is now running!"
-echo "Access the dashboard at http://localhost:3000" 
+echo "Access the dashboard at http://localhost:10003" 

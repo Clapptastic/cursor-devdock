@@ -1,18 +1,27 @@
+# Use a smaller base image
+FROM node:18-alpine AS builder
+
+WORKDIR /app
+
+# Copy package.json and package-lock.json
+COPY package.json ./
+
+# Install dependencies
+RUN npm install --production
+
+# Copy the rest of the application code
+COPY . .
+
+# Use a smaller runtime image
 FROM node:18-alpine
 
 WORKDIR /app
 
-# Clone the Kaneo repository
-RUN apk add --no-cache git
-RUN git clone https://github.com/usekaneo/kaneo.git .
+# Copy only the necessary files from the builder stage
+COPY --from=builder /app .
 
-# Install dependencies
-RUN npm install
-
-# Build the application
-RUN npm run build
-
+# Expose the port the app runs on
 EXPOSE 3333
 
-# Start the Kaneo server
+# Start the application
 CMD ["npm", "start"] 
