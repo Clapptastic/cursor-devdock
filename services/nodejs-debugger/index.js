@@ -15,7 +15,7 @@ const Inspector = require('inspector');
 temp.track();
 
 const app = express();
-const port = process.env.PORT || 3456;
+const port = process.env.PORT || 12345;
 const debugPort = process.env.DEBUG_PORT || 9229;
 
 // MCP REST API URL

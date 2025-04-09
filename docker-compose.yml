@@ -90,11 +90,11 @@ services:
     build:
       context: ./services/nodejs-debugger
     ports:
-      - "10008:3456"
+      - "10008:12345"
       - "9229:9229"
     environment:
       - MCP_REST_API_URL=http://mcp-rest-api:8001
-      - PORT=3456
+      - PORT=12345
 
   # Kaneo Dashboard
   kaneo:
