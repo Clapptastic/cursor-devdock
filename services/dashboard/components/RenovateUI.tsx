@@ -28,23 +28,23 @@ const RenovateUI: React.FC<RenovateUIProps> = ({ title = 'Dependency Manager' })
     setSuccessMessage('');
     
     try {
-      // This would connect to a real API endpoint in production
-      // For demo purposes, we'll simulate the API response
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      // Call the renovate API to scan for updates
+      const response = await axios.post('/api/renovate', {
+        action: 'scan'
+      });
       
-      const mockDependencies: Dependency[] = [
-        { name: 'react', currentVersion: '17.0.2', latestVersion: '18.2.0', updateType: 'major', selected: false },
-        { name: 'next', currentVersion: '12.1.0', latestVersion: '13.4.7', updateType: 'major', selected: false },
-        { name: 'axios', currentVersion: '0.27.2', latestVersion: '1.4.0', updateType: 'major', selected: false },
-        { name: 'typescript', currentVersion: '4.8.4', latestVersion: '5.1.3', updateType: 'major', selected: false },
-        { name: 'tailwindcss', currentVersion: '3.0.24', latestVersion: '3.3.2', updateType: 'minor', selected: false },
-        { name: '@types/react', currentVersion: '17.0.39', latestVersion: '18.2.8', updateType: 'major', selected: false },
-        { name: 'eslint', currentVersion: '8.16.0', latestVersion: '8.42.0', updateType: 'patch', selected: false },
-        { name: 'prettier', currentVersion: '2.6.2', latestVersion: '2.8.8', updateType: 'minor', selected: false },
-      ];
-      
-      setDependencies(mockDependencies);
-      setSuccessMessage('Scan completed successfully. Found updates for 8 dependencies.');
+      if (response.data.success) {
+        // Add selected property to each dependency
+        const depsWithSelection = response.data.dependencies.map(dep => ({
+          ...dep,
+          selected: false
+        }));
+        
+        setDependencies(depsWithSelection);
+        setSuccessMessage(`Scan completed successfully. Found updates for ${depsWithSelection.length} dependencies.`);
+      } else {
+        throw new Error(response.data.error || 'Failed to scan for updates');
+      }
     } catch (err) {
       console.error('Error scanning for updates:', err);
       setError('Failed to scan for dependency updates. Please try again.');
@@ -66,19 +66,26 @@ const RenovateUI: React.FC<RenovateUIProps> = ({ title = 'Dependency Manager' })
     setSuccessMessage('');
     
     try {
-      // This would connect to a real API endpoint in production
-      await new Promise(resolve => setTimeout(resolve, 3000));
+      // Call the renovate API to update dependencies
+      const response = await axios.post('/api/renovate', {
+        action: 'update',
+        dependencies: selectedDeps.map(dep => dep.name)
+      });
       
-      // Update the dependencies list to show updated versions
-      setDependencies(
-        dependencies.map(dep => 
-          dep.selected 
-            ? { ...dep, currentVersion: dep.latestVersion, selected: false } 
-            : dep
-        )
-      );
-      
-      setSuccessMessage(`Successfully updated ${selectedDeps.length} dependencies.`);
+      if (response.data.success) {
+        // Update the dependencies list to show updated versions
+        setDependencies(
+          dependencies.map(dep => 
+            dep.selected 
+              ? { ...dep, currentVersion: dep.latestVersion, selected: false } 
+              : dep
+          )
+        );
+        
+        setSuccessMessage(response.data.message || `Successfully updated ${selectedDeps.length} dependencies.`);
+      } else {
+        throw new Error(response.data.error || 'Failed to update dependencies');
+      }
     } catch (err) {
       console.error('Error updating dependencies:', err);
       setError('Failed to update dependencies. Please try again.');
