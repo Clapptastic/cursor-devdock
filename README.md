@@ -1,77 +1,118 @@
 # Cursor DevDock
 
-Cursor DevDock is a development toolkit that provides monitoring, debugging, and visualization tools for your applications.
+![Cursor DevDock Logo](https://cursor.sh/logo.png)
+
+Cursor DevDock is a suite of AI-powered development tools designed to enhance your development workflow. It integrates seamlessly with your existing projects and provides a comprehensive set of features for debugging, dependency management, task tracking, and more.
+
+## Features
+
+- **Dashboard**: Central hub for accessing all Cursor DevDock services
+- **Node.js Debugger**: Advanced debugging tools for Node.js applications
+- **Browser Tools**: Monitor and debug web applications
+- **Debug Visualizer**: Visualize complex data structures
+- **Renovate**: Automated dependency management
+- **Claude Task Master**: AI-powered task management and tracking
+- **MCP Integration**: Seamless integration with Cursor's AI capabilities
+
+## Quick Start
+
+The easiest way to get started is to use our automated installation script:
+
+```bash
+curl -sSL https://raw.githubusercontent.com/manitoai/cursor-devdock/main/cursor-devdock-install.sh | bash
+```
+
+This script will:
+1. Check for Docker and Docker Compose installation
+2. Create the necessary directory structure
+3. Set up configuration files
+4. Integrate with your project's package.json (if available)
+5. Provide convenience scripts for managing the services
+
+After installation, you can start Cursor DevDock with:
+
+```bash
+npm run devdock:start
+# or directly with
+./cursor-devdock/scripts/start.sh
+```
 
 ## Services
 
-- **MCP Konnect**: Service registry and API gateway
-- **MCP REST API**: REST API for interacting with DevDock services
-- **Browser Tools**: Browser monitoring and debugging tools
-- **Claude Task Master**: AI task management and automation
-- **Dashboard**: Main dashboard UI for DevDock
-- **Debug Visualizer**: Tools for visualizing data structures and project information
-- **Kaneo**: Dashboard for services
-- **Scraper**: Web scraping service
-- **Renovate**: Dependency management
+### Dashboard
+- **URL**: http://localhost:10003
+- **Description**: The main interface for accessing all Cursor DevDock services
+- **Features**: Service status monitoring, navigation to all tools, documentation
 
-## Getting Started
+### Node.js Debugger
+- **URL**: http://localhost:10008
+- **Description**: Advanced debugging tools for Node.js applications
+- **Features**: Breakpoint management, variable inspection, step execution, call stack
 
-1. Clone this repository
-2. Run `./init.sh` to start the services
-3. Access the dashboard at http://localhost:10003
+### Browser Tools
+- **URL**: http://localhost:10005
+- **Description**: Tools for monitoring and debugging web applications
+- **Features**: Console log capture, network request monitoring, error tracking
 
-## Integrating with Your Application
+### Debug Visualizer
+- **URL**: http://localhost:10006
+- **Description**: Visualization tools for complex data structures
+- **Features**: JSON visualization, tree view, object inspection
 
-The DevDock services are designed to be integrated with your application via the SDK:
+### Renovate
+- **URL**: http://localhost:10003/renovate
+- **Description**: Dependency management tools
+- **Features**: Scan for outdated dependencies, automated updates, PR management
 
-### Node.js/TypeScript
+### Claude Task Master
+- **URL**: http://localhost:10002
+- **Description**: AI-powered task management
+- **Features**: Task creation, tracking, prioritization, and AI-generated subtasks
 
-```javascript
-// Install the SDK
-npm install cursor-devdock-sdk --save-dev
+## System Requirements
 
-// In your application
-const { CursorDevDockSDK } = require('cursor-devdock-sdk');
+- Docker
+- Docker Compose
+- Node.js 14+ (for npm integration)
 
-// Initialize the SDK
-const devdock = new CursorDevDockSDK({
-  projectName: 'Your Project Name',
-  projectPath: __dirname
-});
+## Configuration
 
-// Start the SDK
-await devdock.init();
+Configuration files are stored in the `cursor-devdock/config` directory. You can modify these files to customize the behavior of the services.
 
-// Use the browser tools
-const browserTools = devdock.getService('browserTools');
-await browserTools.captureEvent({
-  type: 'log',
-  timestamp: new Date().toISOString(),
-  source: 'app.js',
-  data: { message: 'Application started' }
-});
+## Manual Installation
 
-// Use the debug visualizer
-const debugVisualizer = devdock.getService('debugVisualizer');
-await debugVisualizer.visualizeJSON({
-  users: [
-    { id: 1, name: 'John' },
-    { id: 2, name: 'Jane' }
-  ]
-}, 'User Data');
-```
+If you prefer to set up Cursor DevDock manually, follow these steps:
 
-## Service URLs
+1. Clone this repository:
+   ```bash
+   git clone https://github.com/manitoai/cursor-devdock.git
+   ```
 
-- Dashboard: http://localhost:10003
-- MCP Konnect: http://localhost:10000
-- MCP REST API: http://localhost:10001
-- Claude Task Master: http://localhost:10002
-- Scraper: http://localhost:10004
-- Browser Tools: http://localhost:10005
-- Debug Visualizer: http://localhost:10006
-- Kaneo: http://localhost:10007
+2. Navigate to the directory:
+   ```bash
+   cd cursor-devdock
+   ```
 
-## Documentation
+3. Start the services:
+   ```bash
+   docker-compose up -d
+   ```
 
-For more details on integrating with each service, refer to the SDK documentation in the `sdk/` directory. 
+## Troubleshooting
+
+### Services not starting
+- Ensure Docker is running
+- Check for port conflicts
+- Review Docker logs: `docker-compose -f ./cursor-devdock/docker-compose.yml logs`
+
+### Cannot connect to Node.js debugger
+- Ensure your Node.js application is started with the `--inspect` flag
+- Check that port 9229 is accessible
+
+## Support
+
+For support, please visit our [support portal](https://support.cursor.sh) or open an issue on our [GitHub repository](https://github.com/manitoai/cursor-devdock/issues).
+
+## License
+
+Cursor DevDock is licensed under the [MIT License](LICENSE). 

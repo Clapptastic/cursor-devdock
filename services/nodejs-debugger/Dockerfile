@@ -11,12 +11,11 @@ RUN npm install
 # Copy application files
 COPY . .
 
-# Create public directory
+# Create the public directory if it doesn't exist
 RUN mkdir -p public
 
-# Expose debugger port
-EXPOSE 8005
-EXPOSE 9229
+# Expose the port
+EXPOSE 8008
 
 # Start the application
 CMD ["node", "index.js"] 

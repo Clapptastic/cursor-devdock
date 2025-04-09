@@ -9,12 +9,13 @@ const { exec } = require('child_process');
 const temp = require('temp');
 const fs = require('fs');
 const { spawn } = require('child_process');
+const Inspector = require('inspector/promises');
 
 // Initialize automatic cleanup for temp files
 temp.track();
 
 const app = express();
-const port = process.env.PORT || 8005;
+const port = process.env.PORT || 8008;
 const debugPort = process.env.DEBUG_PORT || 9229;
 
 // MCP REST API URL
@@ -742,4 +743,556 @@ for(let i = 0; i < 5; i++) {
   `;
   
   fs.writeFileSync(indexHtml, html);
-} 
+}
+
+// Helper function to connect to Node.js debugger
+async function connectToDebugger(port = 9229) {
+  try {
+    if (debugSession) {
+      await disconnectDebugger();
+    }
+    
+    debugSession = new Inspector.Session();
+    await debugSession.connect(`localhost:${port}`);
+    
+    // Enable required domains
+    await debugSession.post('Debugger.enable');
+    await debugSession.post('Runtime.enable');
+    await debugSession.post('Console.enable');
+    
+    // Set up event listeners
+    debugSession.on('Debugger.paused', handleDebuggerPaused);
+    debugSession.on('Debugger.resumed', handleDebuggerResumed);
+    debugSession.on('Console.messageAdded', handleConsoleMessage);
+    
+    debugSession.connected = true;
+    broadcastToClients({ type: 'connection', status: 'connected', port });
+    console.log(`Connected to Node.js debugger on port ${port}`);
+    return true;
+  } catch (error) {
+    console.error('Failed to connect to debugger:', error.message);
+    debugSession.connected = false;
+    broadcastToClients({ type: 'connection', status: 'error', error: error.message });
+    return false;
+  }
+}
+
+// Disconnect from debugger
+async function disconnectDebugger() {
+  if (debugSession) {
+    try {
+      await debugSession.disconnect();
+      debugSession = null;
+      debugSession.connected = false;
+      broadcastToClients({ type: 'connection', status: 'disconnected' });
+      console.log('Disconnected from Node.js debugger');
+    } catch (error) {
+      console.error('Error disconnecting from debugger:', error.message);
+    }
+  }
+}
+
+// Handle debugger pause events
+function handleDebuggerPaused(params) {
+  const { callFrames, reason } = params;
+  const pauseInfo = {
+    type: 'paused',
+    reason,
+    location: callFrames[0]?.location,
+    callFrames: callFrames.map(frame => ({
+      functionName: frame.functionName,
+      location: frame.location,
+      url: frame.url,
+    })),
+  };
+  
+  broadcastToClients(pauseInfo);
+  console.log(`Debugger paused: ${reason}`);
+}
+
+// Handle debugger resume events
+function handleDebuggerResumed() {
+  broadcastToClients({ type: 'resumed' });
+  console.log('Debugger resumed execution');
+}
+
+// Handle console messages
+function handleConsoleMessage(params) {
+  const { message } = params;
+  const consoleMsg = {
+    type: message.type,
+    text: message.text,
+    timestamp: new Date().toISOString(),
+  };
+  
+  debugSession.consoleOutput.push(consoleMsg);
+  if (debugSession.consoleOutput.length > 100) {
+    debugSession.consoleOutput.shift(); // Keep last 100 messages
+  }
+  
+  broadcastToClients({ type: 'console', message: consoleMsg });
+}
+
+// Broadcast message to all connected WebSocket clients
+function broadcastToClients(message) {
+  const messageStr = JSON.stringify(message);
+  wss.clients.forEach(client => {
+    if (client.readyState === WebSocket.OPEN) {
+      client.send(messageStr);
+    }
+  });
+}
+
+// Create temporary file for debugging
+function createTempFile(content) {
+  return new Promise((resolve, reject) => {
+    temp.open('debug-script', (err, info) => {
+      if (err) return reject(err);
+      
+      fs.write(info.fd, content, err => {
+        if (err) return reject(err);
+        
+        fs.close(info.fd, err => {
+          if (err) return reject(err);
+          resolve(info.path);
+        });
+      });
+    });
+  });
+}
+
+// Run a JavaScript file with debugging enabled
+async function runWithDebugger(filePath, args = []) {
+  if (debugSession.process) {
+    debugSession.process.kill();
+    debugSession.process = null;
+  }
+  
+  return new Promise((resolve, reject) => {
+    const options = ['--inspect=0.0.0.0:9229', filePath, ...args];
+    debugSession.process = spawn('node', options);
+    
+    debugSession.process.stdout.on('data', data => {
+      const output = data.toString();
+      debugSession.consoleOutput.push({
+        type: 'stdout',
+        text: output,
+        timestamp: new Date().toISOString(),
+      });
+      broadcastToClients({ type: 'process-output', source: 'stdout', output });
+      console.log(`[Process stdout] ${output}`);
+    });
+    
+    debugSession.process.stderr.on('data', data => {
+      const output = data.toString();
+      debugSession.consoleOutput.push({
+        type: 'stderr',
+        text: output,
+        timestamp: new Date().toISOString(),
+      });
+      broadcastToClients({ type: 'process-output', source: 'stderr', output });
+      console.error(`[Process stderr] ${output}`);
+    });
+    
+    debugSession.process.on('close', code => {
+      broadcastToClients({ type: 'process-exit', code });
+      console.log(`Child process exited with code ${code}`);
+      debugSession.process = null;
+    });
+    
+    // Wait for the debugger to become available
+    const maxRetries = 5;
+    let retryCount = 0;
+    
+    const tryConnect = async () => {
+      try {
+        if (await connectToDebugger(9229)) {
+          resolve(true);
+        } else {
+          retryCount++;
+          if (retryCount < maxRetries) {
+            console.log(`Retrying connection in 1 second (attempt ${retryCount}/${maxRetries})...`);
+            setTimeout(tryConnect, 1000);
+          } else {
+            reject(new Error('Failed to connect to debugger after multiple attempts'));
+          }
+        }
+      } catch (error) {
+        reject(error);
+      }
+    };
+    
+    // Give the process a moment to start
+    setTimeout(tryConnect, 1000);
+  });
+}
+
+//========== API Endpoints ==========//
+
+// Health check endpoint
+app.get('/api/health', (req, res) => {
+  res.json({ status: 'ok', connected: debugSession.connected });
+});
+
+// Connect to Node.js debugger
+app.post('/api/debugger/connect', async (req, res) => {
+  const { port = 9229 } = req.body;
+  
+  try {
+    if (await connectToDebugger(port)) {
+      res.json({ success: true, message: `Connected to debugger on port ${port}` });
+    } else {
+      res.status(500).json({ success: false, message: 'Failed to connect to debugger' });
+    }
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// Disconnect from debugger
+app.post('/api/debugger/disconnect', async (req, res) => {
+  try {
+    await disconnectDebugger();
+    res.json({ success: true, message: 'Disconnected from debugger' });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// Execute JavaScript code in the debugged process
+app.post('/api/debugger/execute', async (req, res) => {
+  const { code } = req.body;
+  
+  if (!code) {
+    return res.status(400).json({ success: false, message: 'Code is required' });
+  }
+  
+  if (!debugSession || !debugSession.connected) {
+    return res.status(400).json({ success: false, message: 'Not connected to debugger' });
+  }
+  
+  try {
+    const result = await debugSession.post('Runtime.evaluate', {
+      expression: code,
+      objectGroup: 'console',
+      includeCommandLineAPI: true,
+      silent: false,
+      contextId: 1,
+      returnByValue: true,
+      generatePreview: true,
+      userGesture: true,
+      awaitPromise: true,
+    });
+    
+    res.json({ success: true, result });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// Set a breakpoint
+app.post('/api/debugger/breakpoints/set', async (req, res) => {
+  const { file, line } = req.body;
+  
+  if (!file || typeof line !== 'number') {
+    return res.status(400).json({ success: false, message: 'File path and line number are required' });
+  }
+  
+  if (!debugSession || !debugSession.connected) {
+    return res.status(400).json({ success: false, message: 'Not connected to debugger' });
+  }
+  
+  try {
+    const result = await debugSession.post('Debugger.setBreakpointByUrl', {
+      url: `file://${file}`,
+      lineNumber: line,
+      columnNumber: 0,
+    });
+    
+    const breakpoint = {
+      id: result.breakpointId,
+      file,
+      line,
+      locations: result.locations,
+    };
+    
+    debugSession.breakpoints.push(breakpoint);
+    broadcastToClients({ type: 'breakpoint-set', breakpoint });
+    
+    res.json({ success: true, breakpoint });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// Remove a breakpoint
+app.post('/api/debugger/breakpoints/remove', async (req, res) => {
+  const { breakpointId } = req.body;
+  
+  if (!breakpointId) {
+    return res.status(400).json({ success: false, message: 'Breakpoint ID is required' });
+  }
+  
+  if (!debugSession || !debugSession.connected) {
+    return res.status(400).json({ success: false, message: 'Not connected to debugger' });
+  }
+  
+  try {
+    await debugSession.post('Debugger.removeBreakpoint', { breakpointId });
+    
+    // Remove from our list
+    debugSession.breakpoints = debugSession.breakpoints.filter(bp => bp.id !== breakpointId);
+    broadcastToClients({ type: 'breakpoint-removed', breakpointId });
+    
+    res.json({ success: true, message: 'Breakpoint removed' });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// List all breakpoints
+app.get('/api/debugger/breakpoints', (req, res) => {
+  res.json({ success: true, breakpoints: debugSession.breakpoints });
+});
+
+// Step over to the next line
+app.post('/api/debugger/step-over', async (req, res) => {
+  if (!debugSession || !debugSession.connected) {
+    return res.status(400).json({ success: false, message: 'Not connected to debugger' });
+  }
+  
+  try {
+    await debugSession.post('Debugger.stepOver');
+    res.json({ success: true, message: 'Stepped over' });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// Step into a function
+app.post('/api/debugger/step-into', async (req, res) => {
+  if (!debugSession || !debugSession.connected) {
+    return res.status(400).json({ success: false, message: 'Not connected to debugger' });
+  }
+  
+  try {
+    await debugSession.post('Debugger.stepInto');
+    res.json({ success: true, message: 'Stepped into' });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// Step out of the current function
+app.post('/api/debugger/step-out', async (req, res) => {
+  if (!debugSession || !debugSession.connected) {
+    return res.status(400).json({ success: false, message: 'Not connected to debugger' });
+  }
+  
+  try {
+    await debugSession.post('Debugger.stepOut');
+    res.json({ success: true, message: 'Stepped out' });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// Continue execution
+app.post('/api/debugger/continue', async (req, res) => {
+  if (!debugSession || !debugSession.connected) {
+    return res.status(400).json({ success: false, message: 'Not connected to debugger' });
+  }
+  
+  try {
+    await debugSession.post('Debugger.resume');
+    res.json({ success: true, message: 'Execution resumed' });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// Get local variables in current scope
+app.get('/api/debugger/variables', async (req, res) => {
+  const { scope = 'local' } = req.query;
+  
+  if (!debugSession || !debugSession.connected) {
+    return res.status(400).json({ success: false, message: 'Not connected to debugger' });
+  }
+  
+  try {
+    // Get call frames to find the scope
+    const { result } = await debugSession.post('Debugger.paused');
+    if (!result || !result.callFrames || !result.callFrames.length) {
+      return res.status(400).json({ success: false, message: 'Debugger is not paused' });
+    }
+    
+    const frame = result.callFrames[0];
+    let scopeChain = frame.scopeChain;
+    
+    // Find the requested scope
+    let targetScope;
+    if (scope === 'local') {
+      targetScope = scopeChain.find(s => s.type === 'local');
+    } else if (scope === 'global') {
+      targetScope = scopeChain.find(s => s.type === 'global');
+    }
+    
+    if (!targetScope) {
+      return res.status(400).json({ success: false, message: `${scope} scope not found` });
+    }
+    
+    // Get properties of the scope object
+    const properties = await debugSession.post('Runtime.getProperties', {
+      objectId: targetScope.object.objectId,
+      ownProperties: true,
+      accessorPropertiesOnly: false,
+      generatePreview: true,
+    });
+    
+    res.json({ success: true, variables: properties.result });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// Get console output
+app.get('/api/debugger/console', (req, res) => {
+  const { limit = 20 } = req.query;
+  res.json({ success: true, output: debugSession.consoleOutput.slice(-parseInt(limit)) });
+});
+
+// Evaluate expression
+app.post('/api/debugger/evaluate', async (req, res) => {
+  const { expression } = req.body;
+  
+  if (!expression) {
+    return res.status(400).json({ success: false, message: 'Expression is required' });
+  }
+  
+  if (!debugSession || !debugSession.connected) {
+    return res.status(400).json({ success: false, message: 'Not connected to debugger' });
+  }
+  
+  try {
+    const result = await debugSession.post('Runtime.evaluate', {
+      expression,
+      objectGroup: 'console',
+      includeCommandLineAPI: true,
+      silent: false,
+      returnByValue: true,
+      generatePreview: true,
+    });
+    
+    res.json({ success: true, result });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// Get current execution location
+app.get('/api/debugger/location', async (req, res) => {
+  if (!debugSession || !debugSession.connected) {
+    return res.status(400).json({ success: false, message: 'Not connected to debugger' });
+  }
+  
+  try {
+    // Check if debugger is paused
+    const pausedInfo = await debugSession.post('Debugger.paused');
+    if (!pausedInfo || !pausedInfo.callFrames || !pausedInfo.callFrames.length) {
+      return res.json({ success: true, paused: false });
+    }
+    
+    const frame = pausedInfo.callFrames[0];
+    res.json({
+      success: true,
+      paused: true,
+      location: {
+        file: frame.url,
+        line: frame.location.lineNumber,
+        column: frame.location.columnNumber,
+        functionName: frame.functionName,
+      },
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// Run code in debug mode
+app.post('/api/debugger/run', async (req, res) => {
+  const { code, args = [] } = req.body;
+  
+  if (!code) {
+    return res.status(400).json({ success: false, message: 'Code is required' });
+  }
+  
+  try {
+    // Create a temporary file with the code
+    const filePath = await createTempFile(code);
+    
+    // Run the file with debugging enabled
+    await runWithDebugger(filePath, args);
+    
+    res.json({ success: true, message: 'Started debugging session' });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// WebSocket handling
+app.server = app.listen(port, async () => {
+  console.log(`Node.js debugger service running on port ${port}`);
+  await registerWithMcpRestApi();
+});
+
+// Handle WebSocket upgrade
+app.server.on('upgrade', (request, socket, head) => {
+  wss.handleUpgrade(request, socket, head, ws => {
+    wss.emit('connection', ws, request);
+  });
+});
+
+// WebSocket connection handling
+wss.on('connection', ws => {
+  console.log('WebSocket client connected');
+  
+  // Send initial state
+  ws.send(JSON.stringify({ 
+    type: 'init', 
+    connected: debugSession.connected,
+    breakpoints: debugSession.breakpoints,
+  }));
+  
+  ws.on('message', message => {
+    try {
+      const data = JSON.parse(message);
+      console.log('Received message from client:', data);
+      
+      // Process WebSocket commands if needed
+    } catch (error) {
+      console.error('Error processing WebSocket message:', error);
+    }
+  });
+  
+  ws.on('close', () => {
+    console.log('WebSocket client disconnected');
+  });
+});
+
+// Graceful shutdown
+process.on('SIGINT', async () => {
+  console.log('Shutting down Node.js debugger service...');
+  
+  if (debugSession.process) {
+    debugSession.process.kill();
+    debugSession.process = null;
+  }
+  
+  await disconnectDebugger();
+  
+  if (app.server) {
+    app.server.close();
+  }
+  
+  process.exit(0);
+}); 
