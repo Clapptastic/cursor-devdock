@@ -12,6 +12,10 @@ RUN npm install -g renovate
 # Create config directory
 RUN mkdir -p /app/config
 
+# Copy package.json and install dependencies
+COPY package.json /app/
+RUN npm install
+
 # Default renovate config
 COPY renovate.json /app/config/renovate.json
 

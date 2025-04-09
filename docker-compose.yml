@@ -46,6 +46,7 @@ services:
       - debug-visualizer
       - kaneo
       - nodejs-debugger
+      - renovate
     environment:
       - MCP_KONNECT_URL=http://mcp-konnect:3333
       - CLAUDE_TASK_MASTER_URL=http://claude-task-master:8002
@@ -55,6 +56,7 @@ services:
       - NODEJS_DEBUGGER_URL=http://nodejs-debugger:8005
       - KANEO_URL=http://kaneo:3333
       - MCP_REST_API_URL=http://mcp-rest-api:8001
+      - RENOVATE_SERVICE_URL=http://renovate:8099
 
   # Scraping and Stealth
   scraper:
@@ -103,9 +105,13 @@ services:
     environment:
       - MCP_REST_API_URL=http://mcp-rest-api:8001
 
-  # Dependency Management - using a different image
+  # Dependency Management with custom Renovate service
   renovate:
-    image: ghcr.io/renovatebot/renovate:latest
+    build:
+      context: ./services/renovate
+    ports:
+      - "10009:8099"
+    environment:
+      - MCP_REST_API_URL=http://mcp-rest-api:8001
     volumes:
-      - ./config/renovate:/usr/src/app/config
-      - /var/run/docker.sock:/var/run/docker.sock 
+      - ./:/app/repo 
