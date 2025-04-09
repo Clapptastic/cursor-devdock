@@ -1,73 +1,69 @@
-# CI/CD Pipeline for Customer Survey Platform
+# CI/CD Workflows
 
-This document describes the CI/CD pipeline implemented with GitHub Actions for the Customer Survey Platform.
+This directory contains GitHub Actions workflows for the Customer Survey Platform.
 
-## Pipeline Overview
+## Available Workflows
 
-The CI/CD pipeline automates the build, test, and deployment processes for the microservices architecture:
+### 1. CI/CD Workflow (`ci-cd.yml`)
 
-1. **Lint**: Validates code quality
-2. **Test**: Runs automated tests for each service
-3. **Build**: Creates Docker images for each microservice
-4. **Security Scan**: Checks Docker images for vulnerabilities
-5. **Deployment**: Deploys to dev, staging, and production environments based on triggers
+The main CI/CD pipeline that runs on:
+- Push to `main` or `develop` branches
+- Pull requests to `main` or `develop` branches
+- Manual triggers with environment selection
 
-## Pipeline Triggers
+The workflow includes the following jobs:
 
-The pipeline is triggered by these events:
+1. **Lint Code**: Validates code quality using ESLint
+2. **SDK Build and Test**: Builds and tests the SDK, creates the package
+3. **Tests**: Runs unit and integration tests for all microservices
+4. **Build Docker Images**: Builds Docker images for all services
+5. **Security Scan**: Scans Docker images for vulnerabilities using Trivy
+6. **Deploy to Dev**: Deploys to the development environment
+7. **Deploy to Staging**: Deploys to the staging environment
+8. **Deploy to Production**: Deploys to the production environment
 
-- **Push to develop branch**: Runs the pipeline and deploys to dev environment
-- **Push to main branch**: Runs the pipeline and deploys to dev and staging environments
-- **Pull Requests to develop/main**: Runs linting, tests, and builds (without deployment)
-- **Manual trigger**: Allows deploying to any environment (dev, staging, prod)
+### 2. Tests Workflow (`tests.yml`)
 
-## Deployment Environments
+Separate workflow focused on running tests with coverage reports.
 
-The pipeline supports three deployment environments:
+## Environment Promotion
 
-- **Dev**: For development and testing features
-- **Staging**: Pre-production environment for integration testing
-- **Production**: Live environment for end users
+The CI/CD pipeline implements a progressive delivery approach:
 
-Each environment has protection rules requiring appropriate approvals before deployment.
+1. Code merged to `develop` is automatically deployed to the development environment
+2. Code merged to `main` is automatically deployed to the staging environment
+3. Production deployments require a manual trigger or a version tag
 
-## Security Features
+## SDK Deployment
 
-The pipeline includes several security features:
+The SDK is packaged and published in several ways:
 
-- **Dependency Scanning**: Checks for vulnerabilities in dependencies
-- **Docker Image Scanning**: Uses Trivy to scan container images
-- **Secure Secrets**: Uses GitHub Secrets for sensitive information
-- **Environment Protection**: Requires approvals for sensitive deployments
+1. As an npm package uploaded to GitHub Packages
+2. As a Docker container with:
+   - The SDK package
+   - Documentation
+   - A simple web server with API endpoints:
+     - `/health`: Health check
+     - `/sdk`: Package download
+     - `/docs`: API documentation
+     - `/info`: Package information
 
 ## Required Secrets
 
-To use this pipeline, the following secrets must be configured in GitHub:
+- `GITHUB_TOKEN`: For GitHub repository access
+- `KUBE_CONFIG`: Kubernetes configuration for deployments
 
-- `KUBE_CONFIG_DEV`: Kubernetes configuration for dev environment
-- `KUBE_CONFIG_STAGING`: Kubernetes configuration for staging environment
-- `KUBE_CONFIG_PROD`: Kubernetes configuration for production environment
+## Workflow Permissions
 
-## Container Registry
+Workflows require permission to:
+- Read repository contents
+- Write packages
+- Deploy to environments
 
-The pipeline uses GitHub Container Registry (ghcr.io) to store Docker images. Authentication happens automatically using the GitHub Actions runner's credentials.
+## Manual Triggers
 
-## Best Practices Implemented
-
-This pipeline follows DevOps best practices:
-
-- **Infrastructure as Code**: Kubernetes manifests for deployments
-- **Immutable Artifacts**: Images are tagged with commit SHA
-- **Staged Deployments**: Progressive deployment through environments
-- **Automated Testing**: Tests run before deployments
-- **Security Scanning**: Vulnerability scanning of container images
-- **Approval Gates**: Required approvals for production deployment
-- **Zero-Downtime Deployments**: Rolling updates in Kubernetes
-
-## Extending the Pipeline
-
-To add new services to the pipeline:
-
-1. Add the service name to the matrix in the build job
-2. Create appropriate Kubernetes manifests in kubernetes/{env}/ directories
-3. Add the service to the deployment verification steps 
+To manually trigger a deployment:
+1. Go to the Actions tab
+2. Select "Customer Survey Platform CI/CD"
+3. Click "Run workflow"
+4. Select the target environment (dev/staging/prod) 

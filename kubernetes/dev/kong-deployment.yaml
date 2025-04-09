@@ -91,6 +91,24 @@ data:
               minute: 50
               policy: local
 
+      # SDK Service
+      - name: sdk-service
+        url: http://customer-survey-sdk:8080
+        routes:
+          - name: sdk-routes
+            paths:
+              - /sdk
+            strip_path: false
+        plugins:
+          - name: cors
+            config:
+              origins:
+                - "*"
+          - name: rate-limiting
+            config:
+              minute: 50
+              policy: local
+
       # Health check endpoint
       - name: health-endpoint
         url: http://localhost:8000

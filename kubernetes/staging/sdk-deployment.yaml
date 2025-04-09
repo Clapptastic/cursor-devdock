@@ -1,0 +1,107 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: customer-survey-sdk
+  namespace: customer-survey-staging
+  labels:
+    app: customer-survey
+    component: sdk
+    env: staging
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: customer-survey
+      component: sdk
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  template:
+    metadata:
+      labels:
+        app: customer-survey
+        component: sdk
+        env: staging
+    spec:
+      containers:
+        - name: sdk
+          image: ghcr.io/customer-survey-org/customer-survey-sdk:latest
+          imagePullPolicy: Always
+          ports:
+            - name: http
+              containerPort: 8080
+          env:
+            - name: NODE_ENV
+              value: "production"
+          resources:
+            requests:
+              cpu: 200m
+              memory: 256Mi
+            limits:
+              cpu: 400m
+              memory: 512Mi
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 15
+            periodSeconds: 20
+      imagePullSecrets:
+        - name: github-registry
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: customer-survey-sdk
+  namespace: customer-survey-staging
+  labels:
+    app: customer-survey
+    component: sdk
+    env: staging
+spec:
+  type: ClusterIP
+  ports:
+    - port: 8080
+      targetPort: 8080
+      protocol: TCP
+      name: http
+  selector:
+    app: customer-survey
+    component: sdk
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: sdk-nginx-config
+  namespace: customer-survey-staging
+data:
+  nginx.conf: |
+    server {
+      listen 80;
+      server_name localhost;
+      
+      location /docs {
+        root /usr/share/nginx/html;
+        index index.html;
+      }
+      
+      location /sdk {
+        alias /usr/share/nginx/sdk;
+        autoindex on;
+      }
+      
+      location /health {
+        return 200 '{"status":"UP","service":"sdk-docs","environment":"staging"}';
+        add_header Content-Type application/json;
+      }
+    } 

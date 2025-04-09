@@ -182,6 +182,35 @@ sdk.setDebugMode(false);
 
 This SDK includes TypeScript definitions for all API requests and responses.
 
+## Docker Deployment
+
+The SDK can be deployed as a Docker container to serve the package and documentation:
+
+```bash
+# Build the Docker image
+docker build -t customer-survey-sdk .
+
+# Run the container
+docker run -p 8080:8080 customer-survey-sdk
+```
+
+Available endpoints:
+- `/health` - Health check endpoint
+- `/sdk` - Download the SDK package
+- `/docs` - View SDK documentation
+- `/info` - View package information
+
+## CI/CD Pipeline
+
+The SDK is part of the Customer Survey Platform CI/CD pipeline. The pipeline:
+
+1. Builds the SDK
+2. Runs tests
+3. Creates the package
+4. Builds and pushes the Docker image
+5. Deploys the package to GitHub Packages
+6. Deploys the container to Kubernetes
+
 ## License
 
 MIT 
