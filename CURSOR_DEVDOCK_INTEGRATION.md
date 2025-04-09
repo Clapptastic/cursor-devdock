@@ -176,6 +176,14 @@ Advanced debugging tools for Node.js applications:
 - Inspect variables and call stack
 - Step through code execution
 - Monitor console output
+- Execute JavaScript code in the context of your application
+- Debug remote applications with the `--inspect` flag
+
+**Getting Started with the Debugger**:
+1. Start your Node.js application with: `node --inspect your-app.js`
+2. Navigate to the Node.js Debugger UI at http://localhost:10008
+3. Connect to your running Node.js process
+4. Set breakpoints, inspect variables, and control execution
 
 **URL**: http://localhost:10008
 
@@ -256,7 +264,9 @@ AI-powered task management system:
 **Solution**:
 1. Make sure your Node.js application is started with the `--inspect` flag
 2. Check the debugger port (default is 9229)
-3. Restart both your application and the debugger service
+3. Ensure the port is accessible and not blocked by a firewall
+4. Try using `--inspect=0.0.0.0:9229` to listen on all interfaces
+5. Restart both your application and the debugger service
 
 ## FAQ
 
@@ -289,6 +299,13 @@ curl -sSL https://raw.githubusercontent.com/manitoai/cursor-devdock/main/cursor-
 ```
 
 This will update the services while preserving your configuration.
+
+### Can I debug a remote Node.js application?
+
+Yes, you can debug a Node.js application running on a different machine:
+1. Start your application with `--inspect=0.0.0.0:9229` on the remote machine
+2. Make sure the port is accessible over the network
+3. Connect to the remote machine's IP address using the Node.js Debugger
 
 ## Support
 

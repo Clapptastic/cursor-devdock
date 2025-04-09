@@ -47,7 +47,8 @@ npm run devdock:start
 ### Node.js Debugger
 - **URL**: http://localhost:10008
 - **Description**: Advanced debugging tools for Node.js applications
-- **Features**: Breakpoint management, variable inspection, step execution, call stack
+- **Features**: Breakpoint management, variable inspection, step execution, call stack analysis, code evaluation
+- **Integration**: Debug your Node.js applications with `--inspect` flag and connect through the debugger UI
 
 ### Browser Tools
 - **URL**: http://localhost:10005
@@ -108,6 +109,7 @@ If you prefer to set up Cursor DevDock manually, follow these steps:
 ### Cannot connect to Node.js debugger
 - Ensure your Node.js application is started with the `--inspect` flag
 - Check that port 9229 is accessible
+- Review the debugger logs for connection issues
 
 ## Support
 

@@ -2,20 +2,19 @@ FROM node:18-alpine
 
 WORKDIR /app
 
-# Copy package files
+# Copy package files and install dependencies
 COPY package*.json ./
-
-# Install dependencies
 RUN npm install
 
 # Copy application files
 COPY . .
 
-# Create the public directory if it doesn't exist
+# Create necessary directories
 RUN mkdir -p public
 
-# Expose the port
-EXPOSE 8008
+# Expose the port for the debugger service
+EXPOSE 3456
+EXPOSE 9229
 
 # Start the application
 CMD ["node", "index.js"] 

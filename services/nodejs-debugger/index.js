@@ -9,13 +9,13 @@ const { exec } = require('child_process');
 const temp = require('temp');
 const fs = require('fs');
 const { spawn } = require('child_process');
-const Inspector = require('inspector/promises');
+const Inspector = require('inspector');
 
 // Initialize automatic cleanup for temp files
 temp.track();
 
 const app = express();
-const port = process.env.PORT || 8008;
+const port = process.env.PORT || 3456;
 const debugPort = process.env.DEBUG_PORT || 9229;
 
 // MCP REST API URL
