@@ -1,0 +1,110 @@
+version: '3.8'
+
+services:
+  # Frontend microservice
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: customer-survey-frontend
+    ports:
+      - "80:80" # Map container port 80 to host port 80
+    restart: unless-stopped
+    networks:
+      - survey-network
+    depends_on:
+      - kong
+
+  # Kong Gateway (API Gateway replacement)
+  kong:
+    image: kong:latest
+    container_name: customer-survey-kong
+    environment:
+      - KONG_DATABASE=off
+      - KONG_DECLARATIVE_CONFIG=/etc/kong/kong.yml
+      - KONG_PROXY_ACCESS_LOG=/dev/stdout
+      - KONG_ADMIN_ACCESS_LOG=/dev/stdout
+      - KONG_PROXY_ERROR_LOG=/dev/stderr
+      - KONG_ADMIN_ERROR_LOG=/dev/stderr
+      - KONG_ADMIN_LISTEN=0.0.0.0:8001, 0.0.0.0:8444 ssl
+    ports:
+      - "8000:8000" # Kong proxy listens on 8000
+      - "8443:8443" # HTTPS port
+      - "8001:8001" # Admin API
+      - "8444:8444" # Admin API HTTPS
+    volumes:
+      - ./kong.yml:/etc/kong/kong.yml
+    networks:
+      - survey-network
+    depends_on:
+      - survey-service
+      - response-service
+      - ai-service
+    restart: unless-stopped
+
+  # Survey Service
+  survey-service:
+    build:
+      context: ./services/survey-service
+      dockerfile: Dockerfile
+    container_name: customer-survey-survey-service
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=development
+      - PORT=3001
+      - REDIS_URL=redis://redis:6379
+    networks:
+      - survey-network
+    depends_on:
+      - redis
+
+  # Response Service
+  response-service:
+    build:
+      context: ./services/response-service
+      dockerfile: Dockerfile
+    container_name: customer-survey-response-service
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=development
+      - PORT=3002
+      - REDIS_URL=redis://redis:6379
+    networks:
+      - survey-network
+    depends_on:
+      - redis
+
+  # AI Service
+  ai-service:
+    build:
+      context: ./services/ai-service
+      dockerfile: Dockerfile
+    container_name: customer-survey-ai-service
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=development
+      - PORT=3003
+    networks:
+      - survey-network
+
+  # Redis for caching and session management
+  redis:
+    image: redis:alpine
+    container_name: customer-survey-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    restart: unless-stopped
+    networks:
+      - survey-network
+    command: redis-server --appendonly yes
+
+# Volumes
+volumes:
+  redis-data:
+
+# Define network
+networks:
+  survey-network:
+    driver: bridge 

@@ -1,0 +1,779 @@
+openapi: 3.0.0
+info:
+  title: Customer Survey API
+  description: API for the Customer Survey application
+  version: 1.0.0
+  contact:
+    name: API Support
+    email: support@example.com
+
+servers:
+  - url: http://localhost:3000/api
+    description: Local development server
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    ErrorResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: false
+        error:
+          type: object
+          properties:
+            message:
+              type: string
+              example: "Error message"
+            details:
+              type: object
+              example: null
+
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "123e4567-e89b-12d3-a456-426614174000"
+        email:
+          type: string
+          format: email
+          example: "user@example.com"
+        name:
+          type: string
+          example: "John Doe"
+        role:
+          type: string
+          enum: [user, admin]
+          example: "user"
+
+    Template:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+          example: "Customer Satisfaction Survey"
+        description:
+          type: string
+          example: "A survey template for measuring customer satisfaction"
+        industry_id:
+          type: string
+          format: uuid
+        business_stage_id:
+          type: string
+          format: uuid
+        customer_segment_id:
+          type: string
+          format: uuid
+        tags:
+          type: array
+          items:
+            type: string
+          example: ["satisfaction", "customer"]
+        is_public:
+          type: boolean
+          example: true
+        created_by:
+          type: string
+          format: uuid
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    Industry:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+          example: "SaaS"
+        description:
+          type: string
+          example: "Software as a Service industry"
+
+    BusinessStage:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+          example: "Growth"
+        description:
+          type: string
+          example: "Business is scaling and growing"
+
+    CustomerSegment:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+          example: "B2B"
+        description:
+          type: string
+          example: "Business to business customers"
+
+    Question:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        template_id:
+          type: string
+          format: uuid
+        question_text:
+          type: string
+          example: "How satisfied are you with our service?"
+        description:
+          type: string
+          example: "Rate on a scale from 1-5"
+        question_type_id:
+          type: string
+          format: uuid
+        is_required:
+          type: boolean
+          example: true
+        settings:
+          type: object
+        order_position:
+          type: integer
+          example: 1
+
+    Survey:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+          example: "Customer Feedback Q2 2024"
+        description:
+          type: string
+          example: "Quarterly customer feedback survey"
+        template_id:
+          type: string
+          format: uuid
+        user_id:
+          type: string
+          format: uuid
+        settings:
+          type: object
+        status:
+          type: string
+          enum: [draft, active, paused, completed, archived]
+          example: "active"
+        start_date:
+          type: string
+          format: date-time
+        end_date:
+          type: string
+          format: date-time
+
+    Response:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        survey_id:
+          type: string
+          format: uuid
+        respondent_email:
+          type: string
+          format: email
+        respondent_name:
+          type: string
+        metadata:
+          type: object
+        completed:
+          type: boolean
+          example: true
+        created_at:
+          type: string
+          format: date-time
+
+    Analysis:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        survey_id:
+          type: string
+          format: uuid
+        title:
+          type: string
+          example: "Q2 2024 Analysis"
+        summary:
+          type: string
+          example: "Overall positive feedback with suggestions for improvement"
+        insights:
+          type: object
+        sentiment_scores:
+          type: object
+        common_themes:
+          type: object
+        recommendations:
+          type: object
+        created_by:
+          type: string
+          format: uuid
+        created_at:
+          type: string
+          format: date-time
+
+paths:
+  /auth/register:
+    post:
+      summary: Register a new user
+      tags:
+        - Authentication
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+                - password
+                - name
+              properties:
+                email:
+                  type: string
+                  format: email
+                  example: "user@example.com"
+                password:
+                  type: string
+                  format: password
+                  example: "Password123!"
+                name:
+                  type: string
+                  example: "John Doe"
+      responses:
+        '201':
+          description: User registered successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  user:
+                    $ref: '#/components/schemas/User'
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /auth/login:
+    post:
+      summary: Authenticate user and get token
+      tags:
+        - Authentication
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+                - password
+              properties:
+                email:
+                  type: string
+                  format: email
+                  example: "user@example.com"
+                password:
+                  type: string
+                  format: password
+                  example: "Password123!"
+      responses:
+        '200':
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  token:
+                    type: string
+                  user:
+                    $ref: '#/components/schemas/User'
+        '401':
+          description: Authentication failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /auth/logout:
+    post:
+      summary: Logout user and invalidate token
+      tags:
+        - Authentication
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Logout successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "Logged out successfully"
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /templates:
+    get:
+      summary: Get all templates
+      tags:
+        - Templates
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 10
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+        - name: industry_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: business_stage_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: customer_segment_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: search
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: List of templates
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Template'
+                  pagination:
+                    type: object
+                    properties:
+                      total:
+                        type: integer
+                      limit:
+                        type: integer
+                      offset:
+                        type: integer
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /templates/{id}:
+    get:
+      summary: Get template by ID
+      tags:
+        - Templates
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Template details
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/Template'
+        '404':
+          description: Template not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /ai/generate-questions:
+    post:
+      summary: Generate survey questions using AI
+      tags:
+        - AI
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - industry
+                - businessStage
+                - customerSegment
+                - topic
+              properties:
+                industry:
+                  type: string
+                  example: "SaaS"
+                businessStage:
+                  type: string
+                  example: "Growth"
+                customerSegment:
+                  type: string
+                  example: "B2B"
+                topic:
+                  type: string
+                  example: "Customer Satisfaction"
+                count:
+                  type: integer
+                  default: 10
+                  example: 10
+      responses:
+        '200':
+          description: AI-generated questions
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        question_text:
+                          type: string
+                          example: "How satisfied are you with our customer support?"
+                        description:
+                          type: string
+                          example: "Rate on a scale from 1-5"
+                        question_type:
+                          type: string
+                          example: "Rating Scale"
+                        settings:
+                          type: object
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /surveys:
+    get:
+      summary: Get all surveys
+      tags:
+        - Surveys
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 10
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [draft, active, paused, completed, archived]
+        - name: search
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: List of surveys
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Survey'
+                  pagination:
+                    type: object
+                    properties:
+                      total:
+                        type: integer
+                      limit:
+                        type: integer
+                      offset:
+                        type: integer
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /surveys/{id}:
+    get:
+      summary: Get survey by ID
+      tags:
+        - Surveys
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Survey details
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/Survey'
+        '404':
+          description: Survey not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /analysis/{surveyId}:
+    post:
+      summary: Generate analysis for a survey
+      tags:
+        - Analysis
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: surveyId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                includeResponses:
+                  type: boolean
+                  default: true
+                  example: true
+      responses:
+        '200':
+          description: Analysis results
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  analysisResults:
+                    type: object
+                  analysisId:
+                    type: string
+                    format: uuid
+        '404':
+          description: Survey not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /exports/survey/{surveyId}:
+    post:
+      summary: Export survey responses
+      tags:
+        - Exports
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: surveyId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - format
+              properties:
+                format:
+                  type: string
+                  enum: [csv, xlsx, pdf]
+                  example: "csv"
+                includeAnalysis:
+                  type: boolean
+                  default: false
+                  example: true
+      responses:
+        '202':
+          description: Export job started
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  jobId:
+                    type: string
+                    format: uuid
+                  message:
+                    type: string
+                    example: "Export job started. You'll be notified when it's ready."
+        '404':
+          description: Survey not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /integrations:
+    get:
+      summary: Get all integrations
+      tags:
+        - Integrations
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: List of integrations
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                          format: uuid
+                        integration_type:
+                          type: string
+                          example: "salesforce"
+                        is_active:
+                          type: boolean
+                          example: true
+                        created_at:
+                          type: string
+                          format: date-time
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse' 

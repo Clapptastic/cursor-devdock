@@ -1,0 +1,339 @@
+name: Customer Survey Platform CI/CD
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy to'
+        required: true
+        default: 'dev'
+        type: choice
+        options:
+          - dev
+          - staging
+          - prod
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_PREFIX: ${{ github.repository_owner }}/customer-survey-
+
+jobs:
+  lint:
+    name: Lint Code
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run ESLint
+        run: npm run lint
+
+  test:
+    name: Run Tests
+    needs: lint
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        test-type: [unit, integration]
+        service: [survey-service, response-service, ai-service, api-gateway]
+        exclude:
+          # Exclude integration tests for individual services as they're covered by the services/tests/integration
+          - test-type: integration
+            service: survey-service
+          - test-type: integration
+            service: response-service
+          - test-type: integration
+            service: ai-service
+          - test-type: integration
+            service: api-gateway
+      fail-fast: false
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: 'services/${{ matrix.service }}/package-lock.json'
+
+      - name: Install dependencies
+        working-directory: services/${{ matrix.service }}
+        run: npm ci
+
+      - name: Run unit tests
+        if: matrix.test-type == 'unit'
+        working-directory: services/${{ matrix.service }}
+        run: npm test -- --testPathPattern=tests/unit
+
+  ai-service-tests:
+    name: AI Service Extended Tests
+    needs: lint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: 'services/ai-service/package-lock.json'
+
+      - name: Install dependencies
+        working-directory: services/ai-service
+        run: npm ci
+
+      - name: Run API endpoint tests
+        working-directory: services/ai-service
+        run: npm test -- tests/unit/ai.test.js
+
+      - name: Run AI service function tests
+        working-directory: services/ai-service
+        run: npm test -- tests/unit/aiService.test.js
+
+      - name: Run NLP function tests
+        working-directory: services/ai-service
+        run: npm test -- tests/unit/nlpService.test.js
+
+      - name: Run ML function tests
+        working-directory: services/ai-service
+        run: npm test -- tests/unit/mlService.test.js
+
+      - name: Generate test coverage report
+        working-directory: services/ai-service
+        run: npm test -- --coverage
+        
+      - name: Upload test coverage report
+        uses: actions/upload-artifact@v3
+        with:
+          name: ai-service-coverage
+          path: services/ai-service/coverage/
+
+  integration-tests:
+    name: Run Integration Tests
+    needs: [test, ai-service-tests]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      - name: Install dependencies for all services
+        run: |
+          for dir in services/*/; do
+            cd $dir
+            npm ci
+            cd ../../
+          done
+          npm ci
+
+      - name: Run integration tests
+        run: npm test -- services/tests/integration
+        env:
+          NODE_ENV: test
+          SILENT_TESTS: false
+
+      - name: Run AI service integration tests
+        run: npm test -- services/tests/integration/api-ai-integration.test.js
+        env:
+          NODE_ENV: test
+          SILENT_TESTS: false
+
+  build:
+    name: Build Docker Images
+    needs: integration-tests
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        service: [frontend, api-gateway, survey-service, response-service, ai-service]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+        
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+        
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v2
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+          
+      - name: Get short SHA
+        id: sha
+        run: echo "::set-output name=sha_short::$(git rev-parse --short HEAD)"
+
+      - name: Determine Dockerfile path
+        id: dockerfile
+        run: |
+          if [ "${{ matrix.service }}" == "frontend" ]; then
+            echo "::set-output name=path::."
+          else
+            echo "::set-output name=path::services/${{ matrix.service }}"
+          fi
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v4
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}${{ matrix.service }}
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=sha,prefix=,suffix=,format=short
+      
+      - name: Build and push
+        uses: docker/build-push-action@v4
+        with:
+          context: ${{ steps.dockerfile.outputs.path }}
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  scan:
+    name: Security Scan
+    needs: build
+    runs-on: ubuntu-latest
+    if: github.event_name != 'pull_request'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: '${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}api-gateway:sha-${{ github.sha }}'
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+          severity: 'CRITICAL,HIGH'
+          
+      - name: Upload Trivy scan results
+        uses: github/codeql-action/upload-sarif@v2
+        if: always()
+        with:
+          sarif_file: 'trivy-results.sarif'
+
+  deploy-dev:
+    name: Deploy to Dev
+    needs: scan
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/develop' || (github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'dev')
+    environment: dev
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+        
+      - name: Set up kubeconfig
+        uses: azure/k8s-set-context@v3
+        with:
+          kubeconfig: ${{ secrets.KUBE_CONFIG_DEV }}
+          
+      - name: Deploy to Kubernetes
+        run: |
+          # Update image tags in Kubernetes manifests
+          for service in frontend api-gateway survey-service response-service ai-service; do
+            sed -i "s|image: ghcr.io/.*/customer-survey-$service:.*|image: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}$service:sha-$(git rev-parse --short HEAD)|g" kubernetes/dev/$service-deployment.yaml
+          done
+          
+          # Apply Kubernetes manifests
+          kubectl apply -f kubernetes/dev/
+
+      - name: Verify deployment
+        run: |
+          kubectl rollout status deployment/customer-survey-frontend -n customer-survey
+          kubectl rollout status deployment/customer-survey-kong -n customer-survey
+          kubectl rollout status deployment/customer-survey-survey-service -n customer-survey
+          kubectl rollout status deployment/customer-survey-response-service -n customer-survey
+          kubectl rollout status deployment/customer-survey-ai-service -n customer-survey
+
+  deploy-staging:
+    name: Deploy to Staging
+    needs: deploy-dev
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' || (github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'staging')
+    environment: staging
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+        
+      - name: Set up kubeconfig
+        uses: azure/k8s-set-context@v3
+        with:
+          kubeconfig: ${{ secrets.KUBE_CONFIG_STAGING }}
+          
+      - name: Deploy to Kubernetes
+        run: |
+          # Update image tags in Kubernetes manifests
+          for service in frontend api-gateway survey-service response-service ai-service; do
+            sed -i "s|image: ghcr.io/.*/customer-survey-$service:.*|image: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}$service:sha-$(git rev-parse --short HEAD)|g" kubernetes/staging/$service-deployment.yaml
+          done
+          
+          # Apply Kubernetes manifests
+          kubectl apply -f kubernetes/staging/
+
+      - name: Verify deployment
+        run: |
+          kubectl rollout status deployment/customer-survey-frontend -n customer-survey
+          kubectl rollout status deployment/customer-survey-kong -n customer-survey
+          kubectl rollout status deployment/customer-survey-survey-service -n customer-survey
+          kubectl rollout status deployment/customer-survey-response-service -n customer-survey
+          kubectl rollout status deployment/customer-survey-ai-service -n customer-survey
+
+  deploy-prod:
+    name: Deploy to Production
+    needs: deploy-staging
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'prod'
+    environment:
+      name: prod
+      url: https://customer-survey.example.com
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+        
+      - name: Set up kubeconfig
+        uses: azure/k8s-set-context@v3
+        with:
+          kubeconfig: ${{ secrets.KUBE_CONFIG_PROD }}
+          
+      - name: Deploy to Kubernetes
+        run: |
+          # Update image tags in Kubernetes manifests
+          for service in frontend api-gateway survey-service response-service ai-service; do
+            sed -i "s|image: ghcr.io/.*/customer-survey-$service:.*|image: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}$service:sha-$(git rev-parse --short HEAD)|g" kubernetes/prod/$service-deployment.yaml
+          done
+          
+          # Apply Kubernetes manifests
+          kubectl apply -f kubernetes/prod/
+
+      - name: Verify deployment
+        run: |
+          kubectl rollout status deployment/customer-survey-frontend -n customer-survey
+          kubectl rollout status deployment/customer-survey-kong -n customer-survey
+          kubectl rollout status deployment/customer-survey-survey-service -n customer-survey
+          kubectl rollout status deployment/customer-survey-response-service -n customer-survey
+          kubectl rollout status deployment/customer-survey-ai-service -n customer-survey 

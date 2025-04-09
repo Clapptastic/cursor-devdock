@@ -1,0 +1,12 @@
+{
+  "name": "customer-survey-services",
+  "version": "1.0.0",
+  "description": "Microservices for Customer Survey Platform",
+  "scripts": {
+    "test": "jest --config jest.config.js",
+    "test:unit": "jest --config jest.config.js \"**/unit/**/*.test.js\"",
+    "test:integration": "jest --config jest.config.js \"**/integration/**/*.test.js\"",
+    "test:coverage": "jest --config jest.config.js --coverage"
+  },
+  "license": "UNLICENSED"
+} 

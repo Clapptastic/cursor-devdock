@@ -17,5 +17,24 @@ module.exports = {
       statements: 70
     }
   },
-  testTimeout: 10000
+  testTimeout: 10000,
+  // Configure test groups (projects)
+  projects: [
+    {
+      displayName: 'backend',
+      testMatch: ['<rootDir>/src/tests/backend/**/*.test.js'],
+      testEnvironment: 'node'
+    },
+    {
+      displayName: 'database',
+      testMatch: ['<rootDir>/src/tests/database/**/*.test.js'],
+      testEnvironment: 'node',
+      setupFilesAfterEnv: ['<rootDir>/src/tests/database/setup.js']
+    },
+    {
+      displayName: 'utils',
+      testMatch: ['<rootDir>/src/tests/utils/**/*.test.js'],
+      testEnvironment: 'node'
+    }
+  ]
 }; 

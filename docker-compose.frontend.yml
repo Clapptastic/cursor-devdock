@@ -1,0 +1,33 @@
+services:
+  # Frontend service only
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+    container_name: survey-frontend
+    ports:
+      - "8080:80"
+    environment:
+      - NODE_ENV=development
+      - REACT_APP_API_URL=${API_URL:-http://localhost:3000}
+      - REACT_APP_SUPABASE_URL=${SUPABASE_URL}
+      - REACT_APP_SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY}
+      - DEBUG=true
+    env_file:
+      - .env
+    volumes:
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf
+      - ./src/frontend:/usr/share/nginx/html/frontend-source
+    networks:
+      - survey-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:80/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+networks:
+  survey-network:
+    driver: bridge 

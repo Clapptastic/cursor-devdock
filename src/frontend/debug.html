@@ -1,0 +1,522 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Customer Survey Platform - Debug Tools</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            margin: 0;
+            padding: 20px;
+            color: #333;
+            background-color: #f4f7fc;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+        h1 {
+            color: #4361ee;
+            border-bottom: 2px solid #eee;
+            padding-bottom: 10px;
+        }
+        h2 {
+            color: #3f37c9;
+            margin-top: 25px;
+        }
+        pre {
+            background-color: #f8f9fa;
+            padding: 15px;
+            border-radius: 5px;
+            overflow-x: auto;
+            border: 1px solid #e9ecef;
+        }
+        .btn {
+            display: inline-block;
+            background-color: #4361ee;
+            color: white;
+            padding: 8px 15px;
+            border-radius: 4px;
+            text-decoration: none;
+            margin-right: 10px;
+            margin-bottom: 10px;
+            border: none;
+            cursor: pointer;
+        }
+        .btn:hover {
+            background-color: #3f37c9;
+        }
+        .btn-secondary {
+            background-color: #6c757d;
+        }
+        .btn-secondary:hover {
+            background-color: #5a6268;
+        }
+        .btn-danger {
+            background-color: #dc3545;
+        }
+        .btn-danger:hover {
+            background-color: #c82333;
+        }
+        .code-block {
+            margin: 15px 0;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 15px 0;
+        }
+        table, th, td {
+            border: 1px solid #ddd;
+        }
+        th, td {
+            padding: 10px;
+            text-align: left;
+        }
+        th {
+            background-color: #f8f9fa;
+        }
+        tr:nth-child(even) {
+            background-color: #f2f2f2;
+        }
+        .debug-info {
+            background-color: #e2f3ff;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 15px 0;
+        }
+        .error-container {
+            display: none;
+            color: #721c24;
+            background-color: #f8d7da;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 15px 0;
+        }
+        .success-container {
+            display: none;
+            color: #155724;
+            background-color: #d4edda;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 15px 0;
+        }
+        .docker-test {
+            background-color: #fff3cd;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 15px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Customer Survey Platform - Debug Tools</h1>
+        
+        <div class="debug-info" id="environment-info">
+            <strong>Environment:</strong> <span id="env-type">Loading...</span><br>
+            <strong>Browser:</strong> <span id="browser-info">Loading...</span><br>
+            <strong>Local Storage:</strong> <span id="storage-info">Loading...</span><br>
+            <strong>API Connectivity:</strong> <span id="api-status">Testing...</span>
+        </div>
+        
+        <div class="error-container" id="error-info"></div>
+        <div class="success-container" id="success-info"></div>
+        
+        <div class="docker-test">
+            <h3>Docker Connection Test</h3>
+            <p>If you're running in Docker, this section will help diagnose connection issues:</p>
+            <button class="btn" onclick="testDocker()">Test Docker Configuration</button>
+            <pre id="docker-test-results">Run the test to see results</pre>
+        </div>
+        
+        <h2>Quick Actions</h2>
+        <p>
+            <button class="btn" onclick="testApi()">Test API Connection</button>
+            <button class="btn" onclick="clearLocalStorage()">Clear Local Storage</button>
+            <button class="btn" onclick="testReportGenerator()">Test Report Generator</button>
+            <button class="btn btn-secondary" onclick="viewSourceFiles()">View Source Files</button>
+            <button class="btn btn-secondary" onclick="checkPortAvailability()">Check Port Availability</button>
+            <button class="btn btn-danger" onclick="simulateError()">Simulate Error</button>
+        </p>
+        
+        <h2>Report Generator Interface</h2>
+        <div class="code-block">
+            <button class="btn" onclick="generateSampleReport()">Generate Sample Report</button>
+            <pre id="report-output">// Report output will appear here</pre>
+        </div>
+        
+        <h2>Mock User Authentication</h2>
+        <p>
+            <button class="btn" onclick="mockLogin()">Mock Login</button>
+            <button class="btn btn-secondary" onclick="mockLogout()">Mock Logout</button>
+        </p>
+        <pre id="auth-status">// Authentication status will appear here</pre>
+        
+        <h2>Debugging Logs</h2>
+        <pre id="debug-logs">// Debug logs will appear here</pre>
+        
+        <h2>API Endpoints</h2>
+        <table>
+            <tr>
+                <th>Endpoint</th>
+                <th>Method</th>
+                <th>Description</th>
+                <th>Test</th>
+            </tr>
+            <tr>
+                <td>/api/surveys</td>
+                <td>GET</td>
+                <td>Get all surveys</td>
+                <td><button class="btn btn-secondary" onclick="testEndpoint('/api/surveys', 'GET')">Test</button></td>
+            </tr>
+            <tr>
+                <td>/api/surveys/:id</td>
+                <td>GET</td>
+                <td>Get survey by ID</td>
+                <td><button class="btn btn-secondary" onclick="testEndpoint('/api/surveys/1', 'GET')">Test</button></td>
+            </tr>
+            <tr>
+                <td>/api/reports/generate</td>
+                <td>POST</td>
+                <td>Generate report</td>
+                <td><button class="btn btn-secondary" onclick="testEndpoint('/api/reports/generate', 'POST')">Test</button></td>
+            </tr>
+            <tr>
+                <td>/health</td>
+                <td>GET</td>
+                <td>Docker health check</td>
+                <td><button class="btn btn-secondary" onclick="testEndpoint('/health', 'GET')">Test</button></td>
+            </tr>
+        </table>
+    </div>
+
+    <script>
+        // Debug logging
+        const debugLogs = [];
+        const log = (message) => {
+            const timestamp = new Date().toISOString();
+            const logMessage = `[${timestamp}] ${message}`;
+            debugLogs.push(logMessage);
+            document.getElementById('debug-logs').textContent = debugLogs.join('\n');
+            console.log(message);
+        };
+
+        // Environment detection
+        const detectEnvironment = () => {
+            document.getElementById('browser-info').textContent = navigator.userAgent;
+            
+            // Check if we're in Docker
+            const isDocker = window.location.port === '8080' || 
+                            window.location.hostname === 'localhost' && 
+                            /Docker/.test(navigator.userAgent);
+            
+            document.getElementById('env-type').textContent = isDocker ? 'Docker Container' : 
+                                                            window.location.hostname === 'localhost' ? 
+                                                            'Development' : 'Production';
+            
+            try {
+                const storageCount = Object.keys(localStorage).length;
+                document.getElementById('storage-info').textContent = `${storageCount} items stored`;
+            } catch (err) {
+                document.getElementById('storage-info').textContent = 'Not available (blocked)';
+            }
+            
+            log('Environment detection complete');
+        };
+
+        // Test API connection
+        const testApi = async () => {
+            log('Testing API connection...');
+            try {
+                const response = await fetch('/mock-api/');
+                const data = await response.json();
+                document.getElementById('api-status').textContent = 'Connected (Mock)';
+                showSuccess('API connection successful (mock)');
+                log(`API response: ${JSON.stringify(data)}`);
+            } catch (err) {
+                document.getElementById('api-status').textContent = 'Failed';
+                showError(`API connection failed: ${err.message}`);
+                log(`API connection error: ${err.message}`);
+            }
+        };
+
+        // Test Docker configuration
+        const testDocker = async () => {
+            log('Testing Docker configuration...');
+            const dockerTestElement = document.getElementById('docker-test-results');
+            dockerTestElement.textContent = 'Running Docker tests...';
+            
+            const tests = [
+                { name: 'Health Endpoint', url: '/health', method: 'GET' },
+                { name: 'Static File Access', url: '/index.html', method: 'GET' },
+                { name: 'API Mock Endpoint', url: '/mock-api/', method: 'GET' },
+                { name: 'Debug Tools Access', url: '/debug-tools/', method: 'GET' }
+            ];
+            
+            let results = '';
+            
+            for (const test of tests) {
+                try {
+                    const startTime = Date.now();
+                    const response = await fetch(test.url, { method: test.method });
+                    const endTime = Date.now();
+                    
+                    results += `${test.name}: ${response.status === 200 ? '✅ SUCCESS' : '❌ FAILED'} - ${response.status} ${response.statusText} (${endTime - startTime}ms)\n`;
+                } catch (error) {
+                    results += `${test.name}: ❌ ERROR - ${error.message}\n`;
+                }
+            }
+            
+            // Check host.docker.internal resolution
+            try {
+                results += '\nDocker network configuration:\n';
+                results += `Current URL: ${window.location.href}\n`;
+                results += `host.docker.internal should point to your local machine.\n`;
+                results += 'If API calls fail, ensure Docker is configured to resolve host.docker.internal\n';
+            } catch (error) {
+                results += `Network check error: ${error.message}\n`;
+            }
+            
+            dockerTestElement.textContent = results;
+            log('Docker configuration test complete');
+        };
+
+        // Check port availability
+        const checkPortAvailability = async () => {
+            log('Checking port availability...');
+            const ports = [80, 8080, 3000, 3001, 5173, 5432];
+            let results = 'Port availability check:\n\n';
+            
+            try {
+                for (const port of ports) {
+                    try {
+                        // This is a simple check that will likely timeout if the port is open elsewhere
+                        const testUrl = `http://${window.location.hostname}:${port}/health`;
+                        const abortController = new AbortController();
+                        const timeoutId = setTimeout(() => abortController.abort(), 1000);
+                        
+                        try {
+                            const response = await fetch(testUrl, {
+                                signal: abortController.signal,
+                                mode: 'no-cors',
+                            });
+                            clearTimeout(timeoutId);
+                            results += `Port ${port}: In use (HTTP service responding)\n`;
+                        } catch (error) {
+                            clearTimeout(timeoutId);
+                            if (error.name === 'AbortError') {
+                                results += `Port ${port}: Timed out (likely in use)\n`;
+                            } else {
+                                results += `Port ${port}: ${error.message} (might be available)\n`;
+                            }
+                        }
+                    } catch (error) {
+                        results += `Port ${port}: Check failed - ${error.message}\n`;
+                    }
+                }
+                
+                document.getElementById('report-output').textContent = results;
+                log('Port availability check complete');
+            } catch (error) {
+                document.getElementById('report-output').textContent = `Error checking ports: ${error.message}`;
+                log(`Port check error: ${error.message}`);
+            }
+        };
+
+        // Clear local storage
+        const clearLocalStorage = () => {
+            try {
+                log('Clearing local storage...');
+                localStorage.clear();
+                showSuccess('Local storage cleared');
+                detectEnvironment();
+            } catch (err) {
+                showError(`Failed to clear local storage: ${err.message}`);
+                log(`Local storage error: ${err.message}`);
+            }
+        };
+
+        // Test report generator
+        const testReportGenerator = () => {
+            log('Testing report generator component...');
+            const reportOption = {
+                format: 'pdf',
+                title: 'Debug Test Report',
+                sections: ['executive_summary', 'key_findings'],
+                includeRawData: false
+            };
+            
+            document.getElementById('report-output').textContent = JSON.stringify(reportOption, null, 2);
+            log('Report generator test complete');
+        };
+
+        // Generate sample report
+        const generateSampleReport = async () => {
+            log('Generating sample report...');
+            const reportOptions = {
+                surveyId: 'sample-123',
+                format: 'pdf',
+                title: 'Sample Customer Feedback Report',
+                sections: [
+                    'executive_summary',
+                    'methodology',
+                    'key_findings',
+                    'question_breakdown'
+                ],
+                includeRawData: false,
+                branding: {
+                    primaryColor: '#4361ee',
+                    secondaryColor: '#3f37c9',
+                    includeLogo: true
+                }
+            };
+            
+            try {
+                document.getElementById('report-output').textContent = 'Generating report...';
+                
+                // Simulate report generation delay
+                await new Promise(resolve => setTimeout(resolve, 1500));
+                
+                // Mock response
+                const mockReport = {
+                    reportId: `report-${Date.now()}`,
+                    downloadUrl: `/mock-api/reports/download/sample-123?format=pdf`,
+                    createdAt: new Date().toISOString(),
+                    format: 'pdf',
+                    sections: reportOptions.sections,
+                    fileName: 'Sample_Customer_Feedback_Report.pdf'
+                };
+                
+                document.getElementById('report-output').textContent = JSON.stringify(mockReport, null, 2);
+                showSuccess('Sample report generated successfully!');
+                log('Sample report generated');
+            } catch (err) {
+                document.getElementById('report-output').textContent = `Error: ${err.message}`;
+                showError(`Failed to generate sample report: ${err.message}`);
+                log(`Report generation error: ${err.message}`);
+            }
+        };
+
+        // Mock login and logout
+        const mockLogin = () => {
+            log('Mocking user login...');
+            localStorage.setItem('auth_user', JSON.stringify({
+                id: 'user-123',
+                email: 'debug@example.com',
+                role: 'admin'
+            }));
+            localStorage.setItem('auth_token', 'debug-jwt-token');
+            updateAuthStatus();
+            showSuccess('Logged in as debug@example.com (admin)');
+        };
+        
+        const mockLogout = () => {
+            log('Mocking user logout...');
+            localStorage.removeItem('auth_user');
+            localStorage.removeItem('auth_token');
+            updateAuthStatus();
+            showSuccess('Logged out successfully');
+        };
+        
+        const updateAuthStatus = () => {
+            const user = localStorage.getItem('auth_user');
+            const token = localStorage.getItem('auth_token');
+            
+            if (user && token) {
+                document.getElementById('auth-status').textContent = `Logged in: ${user}\nToken: ${token}`;
+            } else {
+                document.getElementById('auth-status').textContent = 'Not logged in';
+            }
+            detectEnvironment();
+        };
+
+        // Test specific endpoint
+        const testEndpoint = async (endpoint, method) => {
+            log(`Testing endpoint: ${method} ${endpoint}`);
+            
+            try {
+                let response;
+                if (method === 'GET') {
+                    response = await fetch(endpoint);
+                } else {
+                    response = await fetch(endpoint, {
+                        method,
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({debug: true})
+                    });
+                }
+                
+                let responseText;
+                try {
+                    const data = await response.json();
+                    responseText = JSON.stringify(data, null, 2);
+                } catch (e) {
+                    responseText = await response.text();
+                }
+                
+                log(`Endpoint response (${response.status}): ${responseText}`);
+                showSuccess(`${method} ${endpoint} - Success (${response.status})`);
+            } catch (err) {
+                log(`Endpoint error: ${err.message}`);
+                showError(`${method} ${endpoint} - Failed: ${err.message}`);
+            }
+        };
+
+        // View source files
+        const viewSourceFiles = () => {
+            window.open('/debug/', '_blank');
+        };
+
+        // Simulate error for testing error handling
+        const simulateError = () => {
+            log('Simulating error...');
+            try {
+                throw new Error('This is a simulated error for testing error handling');
+            } catch (err) {
+                showError(`Simulated error: ${err.message}`);
+                log(`Simulated error: ${err.message}`);
+                console.error('Stack trace for debugging:', err.stack);
+            }
+        };
+
+        // Error and success messages
+        const showError = (message) => {
+            const errorElement = document.getElementById('error-info');
+            errorElement.textContent = message;
+            errorElement.style.display = 'block';
+            setTimeout(() => {
+                errorElement.style.display = 'none';
+            }, 5000);
+        };
+        
+        const showSuccess = (message) => {
+            const successElement = document.getElementById('success-info');
+            successElement.textContent = message;
+            successElement.style.display = 'block';
+            setTimeout(() => {
+                successElement.style.display = 'none';
+            }, 5000);
+        };
+
+        // Initialize
+        window.onload = () => {
+            log('Debug tools initialized');
+            detectEnvironment();
+            updateAuthStatus();
+            testApi();
+            
+            // Check if we're running in Docker
+            if (window.location.port === '8080' || window.location.hostname !== 'localhost') {
+                testDocker();
+            }
+        };
+    </script>
+</body>
+</html> 

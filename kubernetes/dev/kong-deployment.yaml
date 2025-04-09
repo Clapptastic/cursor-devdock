@@ -1,0 +1,232 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kong-config
+  namespace: customer-survey
+data:
+  kong.yml: |
+    _format_version: "2.1"
+    _transform: true
+
+    services:
+      # Survey Service
+      - name: survey-service
+        url: http://customer-survey-survey-service:3001
+        routes:
+          - name: survey-routes
+            paths:
+              - /api/surveys
+            strip_path: true
+        plugins:
+          - name: cors
+            config:
+              origins:
+                - "*"
+              methods:
+                - GET
+                - POST
+                - PUT
+                - DELETE
+                - OPTIONS
+              headers:
+                - Accept
+                - Accept-Version
+                - Content-Length
+                - Content-Type
+                - Authorization
+              credentials: true
+              max_age: 3600
+          - name: rate-limiting
+            config:
+              minute: 100
+              policy: local
+
+      # Public Survey Route (No auth needed)
+      - name: public-survey-service
+        url: http://customer-survey-survey-service:3001/public/survey
+        routes:
+          - name: public-survey-routes
+            paths:
+              - /survey
+            strip_path: true
+        plugins:
+          - name: cors
+            config:
+              origins:
+                - "*"
+
+      # Response Service
+      - name: response-service
+        url: http://customer-survey-response-service:3002
+        routes:
+          - name: response-routes
+            paths:
+              - /api/responses
+            strip_path: true
+        plugins:
+          - name: cors
+            config:
+              origins:
+                - "*"
+          - name: rate-limiting
+            config:
+              minute: 100
+              policy: local
+
+      # AI Service
+      - name: ai-service
+        url: http://customer-survey-ai-service:3003
+        routes:
+          - name: ai-routes
+            paths:
+              - /api/ai
+            strip_path: true
+        plugins:
+          - name: cors
+            config:
+              origins:
+                - "*"
+          - name: rate-limiting
+            config:
+              minute: 50
+              policy: local
+
+      # Health check endpoint
+      - name: health-endpoint
+        url: http://localhost:8000
+        routes:
+          - name: health-route
+            paths:
+              - /health
+        plugins:
+          - name: request-termination
+            config:
+              status_code: 200
+              content_type: application/json
+              body: '{"status": "UP", "service": "kong-gateway"}'
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: customer-survey-kong
+  namespace: customer-survey
+  labels:
+    app: customer-survey-kong
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: customer-survey-kong
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  template:
+    metadata:
+      labels:
+        app: customer-survey-kong
+    spec:
+      containers:
+        - name: kong
+          image: ghcr.io/customer-survey-org/customer-survey-kong:latest
+          imagePullPolicy: Always
+          env:
+            - name: KONG_DATABASE
+              value: "off"
+            - name: KONG_DECLARATIVE_CONFIG
+              value: "/etc/kong/kong.yml"
+            - name: KONG_PROXY_ACCESS_LOG
+              value: "/dev/stdout"
+            - name: KONG_ADMIN_ACCESS_LOG
+              value: "/dev/stdout"
+            - name: KONG_PROXY_ERROR_LOG
+              value: "/dev/stderr"
+            - name: KONG_ADMIN_ERROR_LOG
+              value: "/dev/stderr"
+            - name: KONG_ADMIN_LISTEN
+              value: "0.0.0.0:8001, 0.0.0.0:8444 ssl"
+          ports:
+            - name: proxy
+              containerPort: 8000
+            - name: proxy-ssl
+              containerPort: 8443
+            - name: admin
+              containerPort: 8001
+            - name: admin-ssl
+              containerPort: 8444
+          volumeMounts:
+            - name: kong-config-volume
+              mountPath: /etc/kong
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 15
+            periodSeconds: 20
+          resources:
+            requests:
+              cpu: 200m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+      volumes:
+        - name: kong-config-volume
+          configMap:
+            name: kong-config
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: customer-survey-kong
+  namespace: customer-survey
+spec:
+  type: ClusterIP
+  ports:
+    - name: proxy
+      port: 8000
+      targetPort: 8000
+    - name: proxy-ssl
+      port: 8443
+      targetPort: 8443
+    - name: admin
+      port: 8001
+      targetPort: 8001
+    - name: admin-ssl
+      port: 8444
+      targetPort: 8444
+  selector:
+    app: customer-survey-kong
+
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: customer-survey-ingress
+  namespace: customer-survey
+  annotations:
+    kubernetes.io/ingress.class: "nginx"
+    nginx.ingress.kubernetes.io/ssl-redirect: "false"
+    nginx.ingress.kubernetes.io/use-regex: "true"
+    nginx.ingress.kubernetes.io/rewrite-target: /$1
+spec:
+  rules:
+    - host: dev-api.customer-survey.example.com
+      http:
+        paths:
+          - path: /(.*)
+            pathType: Prefix
+            backend:
+              service:
+                name: customer-survey-kong
+                port:
+                  number: 8000 

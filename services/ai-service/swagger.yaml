@@ -1,0 +1,672 @@
+openapi: 3.0.0
+info:
+  title: Customer Survey AI Service
+  description: AI-powered services for survey question generation and analysis
+  version: 1.0.0
+  contact:
+    name: API Support
+    email: support@example.com
+
+servers:
+  - url: http://localhost:3006
+    description: Local development server
+  - url: http://ai-service:3006
+    description: Docker development environment
+
+components:
+  schemas:
+    Error:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: false
+        error:
+          type: object
+          properties:
+            message:
+              type: string
+              example: "Error description"
+            details:
+              type: object
+              nullable: true
+
+    GenerateQuestionsRequest:
+      type: object
+      required:
+        - industry
+        - businessStage
+        - customerSegment
+        - topic
+      properties:
+        industry:
+          type: string
+          example: "SaaS"
+        businessStage:
+          type: string
+          example: "Growth"
+        customerSegment:
+          type: string
+          example: "B2B"
+        topic:
+          type: string
+          example: "Customer Satisfaction"
+        count:
+          type: integer
+          minimum: 1
+          maximum: 100
+          default: 10
+          example: 10
+
+    QuestionResponse:
+      type: object
+      properties:
+        question_text:
+          type: string
+          example: "How satisfied are you with our customer support?"
+        description:
+          type: string
+          example: "Rate on a scale from 1 to 5"
+        question_type:
+          type: string
+          example: "Rating Scale"
+        question_type_id:
+          type: string
+          example: "1"
+        is_required:
+          type: boolean
+          example: true
+        settings:
+          type: object
+          example:
+            min: 1
+            max: 5
+            minLabel: "Poor"
+            maxLabel: "Excellent"
+        order_position:
+          type: integer
+          example: 0
+
+    GenerateQuestionsResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: "Successfully generated 10 questions for Customer Satisfaction"
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/QuestionResponse'
+
+    ImproveQuestionRequest:
+      type: object
+      required:
+        - question
+      properties:
+        question:
+          type: string
+          example: "Do you like our product?"
+        context:
+          type: string
+          example: "A SaaS product for project management"
+
+    ImproveQuestionResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: "Question successfully improved"
+        data:
+          type: object
+          properties:
+            original:
+              type: string
+              example: "Do you like our product?"
+            improved:
+              type: string
+              example: "On a scale of 1 to 5, how satisfied are you with our project management solution?"
+            suggestions:
+              type: array
+              items:
+                type: string
+              example:
+                - "Make it more specific"
+                - "Add a clear scale"
+                - "Simplify language"
+
+    TranslateSurveyRequest:
+      type: object
+      required:
+        - questions
+        - targetLanguage
+      properties:
+        questions:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+                example: "q1"
+              question_text:
+                type: string
+                example: "How satisfied are you with our product?"
+              description:
+                type: string
+                example: "Rate on a scale from 1 to 5"
+          minItems: 1
+        targetLanguage:
+          type: string
+          example: "Spanish"
+
+    AnalyzeResponsesRequest:
+      type: object
+      required:
+        - survey_id
+      properties:
+        survey_id:
+          type: string
+          example: "survey-123"
+        includeResponses:
+          type: boolean
+          default: true
+          example: true
+
+    AnalysisResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: "Survey responses analyzed successfully"
+        data:
+          type: object
+          properties:
+            id:
+              type: string
+              example: "analysis-123"
+            survey_id:
+              type: string
+              example: "survey-123"
+            summary:
+              type: string
+              example: "Overall positive sentiment with constructive feedback for improvements"
+            statistics:
+              type: object
+              properties:
+                totalResponses:
+                  type: integer
+                  example: 100
+                completionRate:
+                  type: integer
+                  example: 87
+                averageCompletionTime:
+                  type: string
+                  example: "3m 42s"
+            sentiment:
+              type: object
+              properties:
+                overall:
+                  type: string
+                  example: "positive"
+                scores:
+                  type: object
+                  properties:
+                    positive:
+                      type: integer
+                      example: 68
+                    neutral:
+                      type: integer
+                      example: 20
+                    negative:
+                      type: integer
+                      example: 12
+            common_themes:
+              type: array
+              items:
+                type: object
+                properties:
+                  name:
+                    type: string
+                    example: "User Experience"
+                  sentiment:
+                    type: string
+                    example: "positive"
+                  frequency:
+                    type: string
+                    example: "high"
+            recommendations:
+              type: array
+              items:
+                type: string
+              example:
+                - "Improve documentation based on specific user feedback"
+                - "Continue emphasizing the strengths in user experience"
+
+    ThemeExtractionRequest:
+      type: object
+      required:
+        - survey_id
+      properties:
+        survey_id:
+          type: string
+          example: "survey-123"
+        options:
+          type: object
+          properties:
+            minThemeCount:
+              type: integer
+              default: 3
+              example: 3
+            maxThemes:
+              type: integer
+              default: 10
+              example: 10
+            includeKeyPhrases:
+              type: boolean
+              default: true
+              example: true
+
+paths:
+  /health:
+    get:
+      summary: Health check endpoint
+      description: Confirms that the AI service is operational
+      responses:
+        '200':
+          description: Service is operational
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "success"
+                  message:
+                    type: string
+                    example: "AI Service is operational"
+                  timestamp:
+                    type: string
+                    format: date-time
+
+  /generate-questions:
+    post:
+      summary: Generate survey questions
+      description: |
+        Generates survey questions based on industry, business stage, customer segment, and topic.
+        
+        The count parameter determines how many questions to generate.
+      tags:
+        - Question Generation
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GenerateQuestionsRequest'
+        required: true
+      responses:
+        '200':
+          description: Questions generated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenerateQuestionsResponse'
+        '400':
+          description: Bad request - Invalid parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /improve-question:
+    post:
+      summary: Improve an existing question
+      description: Takes a question and provides an improved version along with suggestions
+      tags:
+        - Question Generation
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ImproveQuestionRequest'
+        required: true
+      responses:
+        '200':
+          description: Question improved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ImproveQuestionResponse'
+        '400':
+          description: Bad request - Invalid parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /translate-survey:
+    post:
+      summary: Translate survey questions
+      description: Translates a list of questions to the specified target language
+      tags:
+        - Question Generation
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TranslateSurveyRequest'
+        required: true
+      responses:
+        '200':
+          description: Questions translated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "Successfully translated 5 questions to Spanish"
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                          example: "q1"
+                        question_text:
+                          type: string
+                          example: "¿Qué tan satisfecho está con nuestro producto?"
+                        description:
+                          type: string
+                          example: "Califique en una escala del 1 al 5"
+        '400':
+          description: Bad request - Invalid parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /analyze-responses:
+    post:
+      summary: Analyze survey responses
+      description: Performs a comprehensive analysis of survey responses
+      tags:
+        - Analysis
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AnalyzeResponsesRequest'
+        required: true
+      responses:
+        '200':
+          description: Analysis completed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AnalysisResponse'
+        '400':
+          description: Bad request - Invalid parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Survey not found or no responses available
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /extract-themes:
+    post:
+      summary: Extract common themes from responses
+      description: Identifies recurring themes and topics in open-ended responses
+      tags:
+        - Analysis
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ThemeExtractionRequest'
+        required: true
+      responses:
+        '200':
+          description: Themes extracted successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "Themes extracted successfully"
+                  data:
+                    type: object
+                    properties:
+                      themes:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            name:
+                              type: string
+                              example: "Customer Service"
+                            count:
+                              type: integer
+                              example: 45
+                            sentiment:
+                              type: string
+                              example: "mixed"
+                      keyPhrases:
+                        type: array
+                        items:
+                          type: string
+                        example:
+                          - "easy to use"
+                          - "affordable"
+                          - "helpful support"
+        '400':
+          description: Bad request - Invalid parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Survey not found or no responses available
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /generate-insights:
+    post:
+      summary: Generate actionable insights
+      description: Produces business insights and recommendations based on survey results
+      tags:
+        - Insights
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - survey_id
+              properties:
+                survey_id:
+                  type: string
+                  example: "survey-123"
+                options:
+                  type: object
+                  properties:
+                    includeRecommendations:
+                      type: boolean
+                      default: true
+                    focusAreas:
+                      type: array
+                      items:
+                        type: string
+                      example: ["pricing", "support", "usability"]
+      responses:
+        '200':
+          description: Insights generated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "Insights generated successfully"
+                  data:
+                    type: object
+                    properties:
+                      summary:
+                        type: string
+                        example: "Overall positive feedback with some concerns about pricing"
+                      strengths:
+                        type: array
+                        items:
+                          type: string
+                        example:
+                          - "Customer service received high marks"
+                          - "Product quality is appreciated by most customers"
+                      weaknesses:
+                        type: array
+                        items:
+                          type: string
+                        example:
+                          - "Pricing is a concern for SMB segment"
+                          - "Onboarding process could be improved"
+                      recommendations:
+                        type: array
+                        items:
+                          type: string
+                        example:
+                          - "Consider tiered pricing for SMB segment"
+                          - "Invest in improving the onboarding experience"
+        '404':
+          description: Survey not found or no responses available
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /competitor-analysis:
+    post:
+      summary: Analyze competitors
+      description: |
+        Premium feature that performs a comparative analysis against specified competitors.
+        This is an asynchronous operation - results will be delivered via notification.
+      tags:
+        - Insights
+        - Premium
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - survey_id
+                - competitors
+              properties:
+                survey_id:
+                  type: string
+                  example: "survey-123"
+                competitors:
+                  type: array
+                  items:
+                    type: string
+                  example: ["Competitor A", "Competitor B", "Competitor C"]
+                  minItems: 1
+      responses:
+        '202':
+          description: Analysis job started
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "Competitor analysis job started. You will be notified when complete."
+                  jobId:
+                    type: string
+                    example: "job-1620000000000"
+        '400':
+          description: Bad request - Invalid parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Forbidden - Premium feature not available with current subscription
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error' 

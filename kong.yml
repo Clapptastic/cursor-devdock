@@ -1,0 +1,99 @@
+_format_version: "2.1"
+_transform: true
+
+services:
+  # Survey Service
+  - name: survey-service
+    url: http://survey-service:3001
+    routes:
+      - name: survey-routes
+        paths:
+          - /api/surveys
+        strip_path: true
+    plugins:
+      - name: cors
+        config:
+          origins:
+            - "*"
+          methods:
+            - GET
+            - POST
+            - PUT
+            - DELETE
+            - OPTIONS
+          headers:
+            - Accept
+            - Accept-Version
+            - Content-Length
+            - Content-Type
+            - Authorization
+          credentials: true
+          max_age: 3600
+      - name: rate-limiting
+        config:
+          minute: 100
+          policy: local
+
+  # Public Survey Route (No auth needed)
+  - name: public-survey-service
+    url: http://survey-service:3001/public/survey
+    routes:
+      - name: public-survey-routes
+        paths:
+          - /survey
+        strip_path: true
+    plugins:
+      - name: cors
+        config:
+          origins:
+            - "*"
+
+  # Response Service
+  - name: response-service
+    url: http://response-service:3002
+    routes:
+      - name: response-routes
+        paths:
+          - /api/responses
+        strip_path: true
+    plugins:
+      - name: cors
+        config:
+          origins:
+            - "*"
+      - name: rate-limiting
+        config:
+          minute: 100
+          policy: local
+
+  # AI Service
+  - name: ai-service
+    url: http://ai-service:3003
+    routes:
+      - name: ai-routes
+        paths:
+          - /api/ai
+        strip_path: true
+    plugins:
+      - name: cors
+        config:
+          origins:
+            - "*"
+      - name: rate-limiting
+        config:
+          minute: 50
+          policy: local
+
+  # Health check endpoint
+  - name: health-endpoint
+    url: http://localhost:8000
+    routes:
+      - name: health-route
+        paths:
+          - /health
+    plugins:
+      - name: request-termination
+        config:
+          status_code: 200
+          content_type: application/json
+          body: '{"status": "UP", "service": "kong-gateway"}' 
