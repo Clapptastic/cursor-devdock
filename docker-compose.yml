@@ -44,11 +44,13 @@ services:
       - scraper
       - browser-tools
       - debug-visualizer
+      - kaneo
     environment:
       - CLAUDE_TASK_MASTER_URL=http://claude-task-master:8002
       - SCRAPER_URL=http://scraper:8003
       - BROWSER_TOOLS_URL=http://browser-tools:8004
       - DEBUG_VISUALIZER_URL=http://debug-visualizer:8005
+      - KANEO_URL=http://kaneo:3333
 
   # Scraping and Stealth
   scraper:
@@ -74,6 +76,15 @@ services:
       context: ./services/debug-visualizer
     ports:
       - "8005:8005"
+    environment:
+      - MCP_REST_API_URL=http://mcp-rest-api:8001
+
+  # Kaneo Dashboard
+  kaneo:
+    build:
+      context: ./services/kaneo
+    ports:
+      - "3333:3333"
     environment:
       - MCP_REST_API_URL=http://mcp-rest-api:8001
 

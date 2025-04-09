@@ -2,11 +2,11 @@ FROM node:18-alpine
 
 WORKDIR /app
 
-COPY package.json package-lock.json ./
+COPY package.json package-lock.json* ./
 RUN npm install
 
 COPY . .
 
 EXPOSE 8005
 
-CMD ["npm", "start"] 
+CMD ["node", "index.js"] 

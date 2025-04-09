@@ -87,6 +87,18 @@ const Dashboard = () => {
           >
             Debug Visualizer
           </button>
+          <button 
+            className={activeTab === 'typescript' ? styles.activeTab : ''}
+            onClick={() => setActiveTab('typescript')}
+          >
+            TypeScript Debug
+          </button>
+          <button 
+            className={activeTab === 'kaneo' ? styles.activeTab : ''}
+            onClick={() => setActiveTab('kaneo')}
+          >
+            Kaneo
+          </button>
         </nav>
       </header>
 
@@ -202,6 +214,30 @@ const Dashboard = () => {
               width="100%" 
               height="100%" 
               title="Debug Visualizer"
+              className={styles.iframe}
+            />
+          </div>
+        )}
+
+        {activeTab === 'typescript' && (
+          <div className={styles.fullFrame}>
+            <iframe 
+              src="/typescript-debug" 
+              width="100%" 
+              height="100%" 
+              title="TypeScript Debug"
+              className={styles.iframe}
+            />
+          </div>
+        )}
+
+        {activeTab === 'kaneo' && (
+          <div className={styles.fullFrame}>
+            <iframe 
+              src="http://localhost:3333" 
+              width="100%" 
+              height="100%" 
+              title="Kaneo Dashboard"
               className={styles.iframe}
             />
           </div>
