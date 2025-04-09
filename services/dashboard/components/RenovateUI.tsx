@@ -21,11 +21,15 @@ const RenovateUI: React.FC<RenovateUIProps> = ({ title = 'Dependency Manager' })
   const [error, setError] = useState<string>('');
   const [successMessage, setSuccessMessage] = useState<string>('');
   const [filter, setFilter] = useState<string>('all');
+  const [detailsLog, setDetailsLog] = useState<string>('');
+  const [showDetails, setShowDetails] = useState<boolean>(false);
 
   const scanForUpdates = async () => {
     setScanning(true);
     setError('');
     setSuccessMessage('');
+    setDetailsLog('');
+    setShowDetails(false);
     
     try {
       // Call the renovate API to scan for updates
@@ -41,13 +45,18 @@ const RenovateUI: React.FC<RenovateUIProps> = ({ title = 'Dependency Manager' })
         }));
         
         setDependencies(depsWithSelection);
-        setSuccessMessage(`Scan completed successfully. Found updates for ${depsWithSelection.length} dependencies.`);
+        
+        if (depsWithSelection.length === 0) {
+          setSuccessMessage('Scan completed successfully. All dependencies are up to date!');
+        } else {
+          setSuccessMessage(`Scan completed successfully. Found updates for ${depsWithSelection.length} dependencies.`);
+        }
       } else {
         throw new Error(response.data.error || 'Failed to scan for updates');
       }
     } catch (err) {
       console.error('Error scanning for updates:', err);
-      setError('Failed to scan for dependency updates. Please try again.');
+      setError(`Failed to scan for dependency updates: ${err.response?.data?.details || err.message}`);
     } finally {
       setScanning(false);
     }
@@ -64,12 +73,17 @@ const RenovateUI: React.FC<RenovateUIProps> = ({ title = 'Dependency Manager' })
     setUpdating(true);
     setError('');
     setSuccessMessage('');
+    setDetailsLog('');
+    setShowDetails(false);
     
     try {
       // Call the renovate API to update dependencies
       const response = await axios.post('/api/renovate', {
         action: 'update',
-        dependencies: selectedDeps.map(dep => dep.name)
+        dependencies: selectedDeps.map(dep => ({
+          name: dep.name,
+          version: dep.latestVersion
+        }))
       });
       
       if (response.data.success) {
@@ -83,12 +97,18 @@ const RenovateUI: React.FC<RenovateUIProps> = ({ title = 'Dependency Manager' })
         );
         
         setSuccessMessage(response.data.message || `Successfully updated ${selectedDeps.length} dependencies.`);
+        
+        // Store details for log view
+        if (response.data.details) {
+          const logContent = `STDOUT:\n${response.data.details.stdout || 'No output'}\n\nSTDERR:\n${response.data.details.stderr || 'No errors'}`;
+          setDetailsLog(logContent);
+        }
       } else {
         throw new Error(response.data.error || 'Failed to update dependencies');
       }
     } catch (err) {
       console.error('Error updating dependencies:', err);
-      setError('Failed to update dependencies. Please try again.');
+      setError(`Failed to update dependencies: ${err.response?.data?.details || err.message}`);
     } finally {
       setUpdating(false);
     }
@@ -162,8 +182,31 @@ const RenovateUI: React.FC<RenovateUIProps> = ({ title = 'Dependency Manager' })
         </button>
       </div>
 
-      {error && <div className="renovate-error">{error}</div>}
-      {successMessage && <div className="renovate-success">{successMessage}</div>}
+      {error && (
+        <div className="renovate-error">
+          <p>{error}</p>
+        </div>
+      )}
+      
+      {successMessage && (
+        <div className="renovate-success">
+          <p>{successMessage}</p>
+          {detailsLog && (
+            <button 
+              className="details-toggle" 
+              onClick={() => setShowDetails(!showDetails)}
+            >
+              {showDetails ? 'Hide Details' : 'Show Details'}
+            </button>
+          )}
+        </div>
+      )}
+      
+      {showDetails && detailsLog && (
+        <div className="details-log">
+          <pre>{detailsLog}</pre>
+        </div>
+      )}
       
       {dependencies.length > 0 && (
         <>
@@ -314,6 +357,34 @@ const RenovateUI: React.FC<RenovateUIProps> = ({ title = 'Dependency Manager' })
           background-color: #d1fae5;
           border-left: 4px solid #10b981;
           color: #047857;
+        }
+        
+        .details-toggle {
+          background: none;
+          border: none;
+          color: #047857;
+          text-decoration: underline;
+          cursor: pointer;
+          padding: 0.25rem 0;
+          margin-top: 0.5rem;
+          font-size: 0.875rem;
+        }
+        
+        .details-log {
+          margin-bottom: 1rem;
+          padding: 0.75rem;
+          background-color: #f1f5f9;
+          border: 1px solid #e2e8f0;
+          border-radius: 0.25rem;
+          max-height: 200px;
+          overflow-y: auto;
+        }
+        
+        .details-log pre {
+          margin: 0;
+          font-family: monospace;
+          font-size: 0.875rem;
+          white-space: pre-wrap;
         }
         
         .renovate-filters {
