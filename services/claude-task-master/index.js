@@ -8,6 +8,7 @@ const fs = require('fs');
 const app = express();
 const PORT = process.env.PORT || 8002;
 const MCP_REST_API_URL = process.env.MCP_REST_API_URL || 'http://mcp-rest-api:8001';
+const API_KEYS_SERVICE_URL = process.env.API_KEYS_SERVICE_URL || 'http://api-keys-service:8010';
 
 app.use(cors());
 app.use(bodyParser.json());
@@ -62,6 +63,74 @@ app.use(express.static('public'));
 // In-memory storage for tasks (in a real app, this would be a database)
 const tasks = new Map();
 let taskIdCounter = 1;
+
+// Helper function to verify API key with API Keys Service
+async function verifyApiKey(service, key) {
+  try {
+    const response = await axios.post(`${API_KEYS_SERVICE_URL}/api/keys/verify`, {
+      service,
+      key
+    });
+    return { valid: true, ...response.data };
+  } catch (error) {
+    console.error('Error verifying API key:', error.message);
+    return { 
+      valid: false, 
+      error: error.response?.data?.error || 'Failed to verify API key' 
+    };
+  }
+}
+
+// Helper function to store API key securely
+async function storeApiKey(name, service, key) {
+  try {
+    // Get the admin API key from environment or use a default for development
+    const adminKey = process.env.ADMIN_API_KEY || 'development_admin_key';
+    
+    // First check if a key with this name already exists
+    const response = await axios.get(
+      `${API_KEYS_SERVICE_URL}/api/keys/service/${service}/key/${name}`,
+      {
+        headers: {
+          'x-admin-api-key': adminKey
+        }
+      }
+    );
+    
+    // If key exists, return its ID
+    if (response.data && response.data.id) {
+      return { id: response.data.id, created: false };
+    }
+  } catch (error) {
+    // Key doesn't exist, create a new one
+    try {
+      const createResponse = await axios.post(
+        `${API_KEYS_SERVICE_URL}/api/keys`,
+        {
+          name,
+          service,
+          key
+        },
+        {
+          headers: {
+            'x-admin-api-key': adminKey
+          }
+        }
+      );
+      
+      if (createResponse.data && createResponse.data.apiKey) {
+        return { 
+          id: createResponse.data.apiKey.id, 
+          created: true 
+        };
+      }
+    } catch (createError) {
+      console.error('Error storing API key:', createError.message);
+    }
+  }
+  
+  return { id: null, created: false };
+}
 
 // Generate some initial demo tasks
 function generateDemoTasks() {
@@ -141,74 +210,52 @@ generateDemoTasks();
 
 // API to handle task submissions
 app.post('/api/tasks', async (req, res) => {
-  try {
-    const { title, prompt, context, priority, model, dependencies } = req.body;
-    
-    if (!prompt) {
-      return res.status(400).json({ error: 'Task prompt is required' });
-    }
-    
-    // Create a new task record
-    const taskId = String(taskIdCounter++);
-    const newTask = {
-      id: taskId,
-      title: title || (prompt.substring(0, 50) + (prompt.length > 50 ? '...' : '')),
-      prompt,
-      context: context || '',
-      model: model || 'claude-3-opus-20240229',
-      priority: priority || 'normal',
-      status: 'pending',
-      createdAt: new Date().toISOString(),
-      startedAt: null,
-      completedAt: null,
-      dependencies: dependencies || [],
-      subtasks: []
-    };
-    
-    // Store the task
-    tasks.set(taskId, newTask);
-    
-    // Route task to MCP REST API
-    try {
-      const response = await axios.post(`${MCP_REST_API_URL}/route-task`, {
-        task: prompt,
-        context,
-        model,
-        priority
-      });
-      
-      // Update task with response data
-      const updatedTask = tasks.get(taskId);
-      updatedTask.status = 'processing';
-      updatedTask.startedAt = new Date().toISOString();
-      tasks.set(taskId, updatedTask);
-      
-      // Start processing the task (simulated)
-      setTimeout(() => simulateTaskProcessing(taskId), 5000);
-      
-      res.status(201).json({
-        taskId,
-        status: 'pending',
-        ...response.data
-      });
-    } catch (error) {
-      console.error('Error routing task to MCP:', error);
-      // Still return success as we have stored the task locally
-      res.status(201).json({
-        taskId,
-        status: 'pending',
-        message: 'Task submitted successfully but could not route to MCP. Will retry.'
-      });
-      
-      // Retry routing (in a real app, this would be handled by a queue)
-      setTimeout(() => {
-        simulateTaskProcessing(taskId);
-      }, 5000);
-    }
-  } catch (error) {
-    console.error('Error handling task submission:', error);
-    res.status(500).json({ error: 'Failed to process task' });
+  const { title, prompt, context, model, priority, apiKeyId } = req.body;
+  
+  // Validate required fields
+  if (!title || !prompt) {
+    return res.status(400).json({ error: 'Title and prompt are required' });
   }
+  
+  // Validate API key if provided
+  if (apiKeyId) {
+    try {
+      const apiKey = await getApiKeyById(apiKeyId);
+      if (!apiKey) {
+        return res.status(400).json({ error: 'Invalid API key ID' });
+      }
+    } catch (error) {
+      console.error('Error validating API key:', error);
+      return res.status(500).json({ error: 'Failed to validate API key' });
+    }
+  } else {
+    return res.status(400).json({ error: 'API key ID is required' });
+  }
+  
+  // Create a new task
+  const taskId = String(taskIdCounter++);
+  const now = new Date().toISOString();
+  
+  const newTask = {
+    id: taskId,
+    title,
+    prompt,
+    context: context || '',
+    model: model || 'claude-3-opus-20240229',
+    priority: priority || 'normal',
+    status: 'pending',
+    createdAt: now,
+    apiKeyId, // Store the API key ID with the task
+    subtasks: [],
+    dependencies: [],
+  };
+  
+  tasks.set(taskId, newTask);
+  
+  // Start processing the task
+  setTimeout(() => simulateTaskProcessing(taskId), 1000);
+  
+  res.status(201).json(newTask);
 });
 
 // Get all tasks
@@ -586,46 +633,100 @@ app.get('/health', (req, res) => {
   res.json({ status: 'UP', version: '1.0.0' });
 });
 
-// Simulate task processing (would be handled by actual AI in production)
-function simulateTaskProcessing(taskId) {
+// Get API key by ID from the API Keys Service
+async function getApiKeyById(id) {
+  try {
+    // Get the admin API key from environment or use a default for development
+    const adminKey = process.env.ADMIN_API_KEY || 'development_admin_key';
+    
+    const response = await axios.get(
+      `${API_KEYS_SERVICE_URL}/api/keys/${id}`,
+      {
+        headers: {
+          'x-admin-api-key': adminKey
+        }
+      }
+    );
+    
+    if (response.data && response.data.key) {
+      return response.data.key;
+    }
+    return null;
+  } catch (error) {
+    console.error('Error retrieving API key:', error.message);
+    return null;
+  }
+}
+
+// Simulate task processing with actual API keys
+async function simulateTaskProcessing(taskId) {
   if (!tasks.has(taskId)) return;
   
   const task = tasks.get(taskId);
+  task.status = 'in_progress';
+  task.startedAt = task.startedAt || new Date().toISOString();
+  tasks.set(taskId, task);
   
-  // Already completed or failed
-  if (['completed', 'failed'].includes(task.status)) return;
-  
-  // Update to processing if still pending
-  if (task.status === 'pending') {
-    task.status = 'processing';
-    task.startedAt = new Date().toISOString();
-    tasks.set(taskId, task);
+  // Determine processing time based on priority
+  let processingTime;
+  switch (task.priority) {
+    case 'urgent':
+      processingTime = Math.floor(Math.random() * 5000) + 2000; // 2-7 seconds
+      break;
+    case 'high':
+      processingTime = Math.floor(Math.random() * 8000) + 5000; // 5-13 seconds
+      break;
+    default:
+      processingTime = Math.floor(Math.random() * 10000) + 10000; // 10-20 seconds
+      break;
   }
   
-  // Simulate processing time (1-10 seconds based on priority)
-  const processingTime = task.priority === 'urgent' ? 1000 : 
-                         task.priority === 'high' ? 3000 : 
-                         10000;
-  
-  setTimeout(() => {
+  // In a real implementation, this would call the actual Claude API
+  // using the stored API key associated with the task
+  setTimeout(async () => {
     if (!tasks.has(taskId)) return;
     
     const completedTask = tasks.get(taskId);
     
-    // Generate a simulated AI response
-    const responses = [
-      "Based on my analysis, I recommend the following approach...",
-      "I've reviewed your request and found these potential solutions...",
-      "After careful consideration, here are my findings and recommendations...",
-      "There are several ways to address this issue. The most efficient would be...",
-      "I've analyzed your requirements and suggest the following implementation strategy..."
-    ];
+    let aiResponse = "I've analyzed your request and here are my recommendations...";
     
-    const randomResponse = responses[Math.floor(Math.random() * responses.length)];
+    // If we have an API key ID, try to retrieve the real key and use it
+    if (completedTask.apiKeyId) {
+      try {
+        const apiKey = await getApiKeyById(completedTask.apiKeyId);
+        
+        if (apiKey) {
+          // Here you would use the actual Anthropic API with the key
+          // For now, we'll just simulate a more detailed response
+          aiResponse = `Based on your prompt: "${completedTask.prompt.substring(0, 30)}...", 
+          I've analyzed the requirements carefully. Here are my findings and recommendations:
+          
+          1. First, consider the core issue at hand: ${completedTask.prompt.substring(0, 20)}...
+          2. The key factors to address are related to ${completedTask.context.substring(0, 15) || 'the context provided'}...
+          3. A recommended approach would be to implement a solution that addresses both immediate needs and long-term scalability.
+          
+          [This is a simulated response using API key ID: ${completedTask.apiKeyId}]`;
+        }
+      } catch (error) {
+        console.error('Error processing task with API key:', error);
+        // Fall back to simulated response if API fails
+      }
+    } else {
+      // Generate a basic simulated AI response
+      const responses = [
+        "Based on my analysis, I recommend the following approach...",
+        "I've reviewed your request and found these potential solutions...",
+        "After careful consideration, here are my findings and recommendations...",
+        "There are several ways to address this issue. The most efficient would be...",
+        "I've analyzed your requirements and suggest the following implementation strategy..."
+      ];
+      
+      aiResponse = responses[Math.floor(Math.random() * responses.length)] + " [Simulated AI response]";
+    }
     
     completedTask.status = 'completed';
     completedTask.completedAt = new Date().toISOString();
-    completedTask.response = randomResponse + " [Simulated AI response]";
+    completedTask.response = aiResponse;
     
     tasks.set(taskId, completedTask);
   }, processingTime);

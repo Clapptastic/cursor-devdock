@@ -9,6 +9,7 @@ const NODEJS_DEBUGGER_URL = process.env.NODEJS_DEBUGGER_URL || 'http://localhost
 const KANEO_URL = process.env.KANEO_URL || 'http://localhost:10007';
 const MCP_REST_API_URL = process.env.MCP_REST_API_URL || 'http://localhost:10001';
 const MCP_KONNECT_URL = process.env.MCP_KONNECT_URL || 'http://localhost:10000';
+const API_KEYS_SERVICE_URL = process.env.API_KEYS_SERVICE_URL || 'http://localhost:10010';
 
 // For browser-side requests, always use localhost URLs
 const CLIENT_CLAUDE_TASK_MASTER_URL = 'http://localhost:10002';
@@ -19,6 +20,7 @@ const CLIENT_NODEJS_DEBUGGER_URL = 'http://localhost:10008';
 const CLIENT_KANEO_URL = 'http://localhost:10007';
 const CLIENT_MCP_REST_API_URL = 'http://localhost:10001';
 const CLIENT_MCP_KONNECT_URL = 'http://localhost:10000';
+const CLIENT_API_KEYS_SERVICE_URL = 'http://localhost:10010';
 
 // Create axios instances for each service
 export const claudeAPI = axios.create({
@@ -53,16 +55,81 @@ export const mcpKonnectAPI = axios.create({
   baseURL: MCP_KONNECT_URL,
 });
 
+export const apiKeysAPI = axios.create({
+  baseURL: API_KEYS_SERVICE_URL,
+});
+
 // Helper functions for common API calls
+
+// API Keys Service calls
+export const verifyApiKey = async (service, key) => {
+  try {
+    const response = await apiKeysAPI.post('/api/keys/verify', { service, key });
+    return { valid: true, ...response.data };
+  } catch (error) {
+    return { valid: false, error: error.response?.data?.error || 'Failed to verify API key' };
+  }
+};
+
+export const getApiKeys = async (adminKey) => {
+  return apiKeysAPI.get('/api/keys', {
+    headers: {
+      'x-admin-api-key': adminKey
+    }
+  });
+};
+
+export const createApiKey = async (name, service, adminKey, expiresAt = null) => {
+  return apiKeysAPI.post('/api/keys', 
+    { name, service, expiresAt },
+    {
+      headers: {
+        'x-admin-api-key': adminKey
+      }
+    }
+  );
+};
+
+export const deactivateApiKey = async (id, adminKey) => {
+  return apiKeysAPI.put(`/api/keys/${id}/deactivate`, {}, {
+    headers: {
+      'x-admin-api-key': adminKey
+    }
+  });
+};
+
+export const activateApiKey = async (id, adminKey) => {
+  return apiKeysAPI.put(`/api/keys/${id}/activate`, {}, {
+    headers: {
+      'x-admin-api-key': adminKey
+    }
+  });
+};
+
+export const deleteApiKey = async (id, adminKey) => {
+  return apiKeysAPI.delete(`/api/keys/${id}`, {
+    headers: {
+      'x-admin-api-key': adminKey
+    }
+  });
+};
 
 // Claude Task Master API calls
 export const submitTask = async (taskData) => {
-  const { title, prompt, context, priority, model, dependencies } = taskData;
+  const { title, prompt, context, priority, model, dependencies, apiKey } = taskData;
   
   // Convert dependencies string to array if necessary
   let deps = dependencies;
   if (typeof dependencies === 'string' && dependencies.trim() !== '') {
     deps = dependencies.split(',').map(id => id.trim());
+  }
+  
+  // If apiKey is provided, verify it first
+  if (apiKey) {
+    const keyVerification = await verifyApiKey('anthropic', apiKey);
+    if (!keyVerification.valid) {
+      throw new Error('Invalid API key');
+    }
   }
   
   return claudeAPI.post('/api/tasks', {
@@ -71,7 +138,8 @@ export const submitTask = async (taskData) => {
     context,
     priority,
     model,
-    dependencies: deps
+    dependencies: deps,
+    apiKey
   });
 };
 
