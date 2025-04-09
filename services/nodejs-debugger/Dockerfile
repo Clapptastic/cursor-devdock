@@ -13,7 +13,7 @@ COPY . .
 RUN mkdir -p public
 
 # Expose the port for the debugger service
-EXPOSE 12345
+EXPOSE 7890
 EXPOSE 9229
 
 # Start the application
