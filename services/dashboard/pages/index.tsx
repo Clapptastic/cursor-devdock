@@ -87,7 +87,7 @@ const Dashboard = () => {
 
       <main>
         <div className="service-grid">
-          <Link href="/browser-tools">
+          <a href="http://localhost:10005" target="_blank" rel="noopener noreferrer">
             <div className={`service-card ${services.find(s => s.name === 'Browser Tools')?.status === 'available' ? 'available' : 'unavailable'}`}>
               <h2>Browser Tools</h2>
               <p>Monitor and debug browser behavior with real-time logs for console events, network requests, and more.</p>
@@ -95,9 +95,9 @@ const Dashboard = () => {
                 <span className="view-button">View Dashboard</span>
               </div>
             </div>
-          </Link>
+          </a>
 
-          <Link href="/debug-visualizer">
+          <a href="http://localhost:10006" target="_blank" rel="noopener noreferrer">
             <div className={`service-card ${services.find(s => s.name === 'Debug Visualizer')?.status === 'available' ? 'available' : 'unavailable'}`}>
               <h2>Debug Visualizer</h2>
               <p>Visualize complex data structures and debug information in an interactive format.</p>
@@ -105,9 +105,9 @@ const Dashboard = () => {
                 <span className="view-button">View Visualizer</span>
               </div>
             </div>
-          </Link>
+          </a>
 
-          <Link href="/scraper">
+          <a href="http://localhost:10004" target="_blank" rel="noopener noreferrer">
             <div className={`service-card ${services.find(s => s.name === 'Scraper')?.status === 'available' ? 'available' : 'unavailable'}`}>
               <h2>Web Scraper</h2>
               <p>Extract and parse data from websites with configurable selectors and stealth mode.</p>
@@ -115,9 +115,9 @@ const Dashboard = () => {
                 <span className="view-button">Open Scraper</span>
               </div>
             </div>
-          </Link>
+          </a>
 
-          <Link href="/claude-tasks">
+          <a href="http://localhost:10002" target="_blank" rel="noopener noreferrer">
             <div className={`service-card ${services.find(s => s.name === 'Claude Task Master')?.status === 'available' ? 'available' : 'unavailable'}`}>
               <h2>Claude Task Master</h2>
               <p>AI-powered task-management system to break down complex projects into manageable tasks with dependencies.</p>
@@ -128,9 +128,9 @@ const Dashboard = () => {
                 </Link>
               </div>
             </div>
-          </Link>
+          </a>
 
-          <Link href="/kaneo">
+          <a href="http://localhost:10007" target="_blank" rel="noopener noreferrer">
             <div className={`service-card ${services.find(s => s.name === 'Kaneo')?.status === 'available' ? 'available' : 'unavailable'}`}>
               <h2>Kaneo Dashboard</h2>
               <p>Centralized control panel for managing MCP services and configurations.</p>
@@ -138,7 +138,7 @@ const Dashboard = () => {
                 <span className="view-button">Open Kaneo</span>
               </div>
             </div>
-          </Link>
+          </a>
 
           <Link href="/service-status">
             <div className="service-card status-card">

@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, render_template_string
 import requests
 import os
 import logging
@@ -359,6 +359,270 @@ def register_with_mcp():
         logger.error(f"Error registering with MCP: {str(e)}")
         # Retry after some delay
         threading.Timer(10.0, register_with_mcp).start()
+
+@app.route('/', methods=['GET'])
+def index():
+    """Serve a simple HTML UI for the scraper service"""
+    html = '''
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Web Scraper</title>
+        <style>
+            body {
+                font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+                margin: 0;
+                padding: 20px;
+                background-color: #f5f7fa;
+                color: #2d3748;
+            }
+            .container {
+                max-width: 800px;
+                margin: 0 auto;
+                background-color: white;
+                padding: 20px;
+                border-radius: 8px;
+                box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            }
+            h1 {
+                margin-top: 0;
+                color: #3182ce;
+            }
+            .form-group {
+                margin-bottom: 15px;
+            }
+            label {
+                display: block;
+                margin-bottom: 5px;
+                font-weight: bold;
+            }
+            input, select, textarea {
+                width: 100%;
+                padding: 8px;
+                border: 1px solid #cbd5e0;
+                border-radius: 4px;
+            }
+            button {
+                background-color: #3182ce;
+                color: white;
+                border: none;
+                padding: 10px 15px;
+                border-radius: 4px;
+                cursor: pointer;
+            }
+            button:hover {
+                background-color: #2b6cb0;
+            }
+            .result {
+                margin-top: 20px;
+                padding: 15px;
+                background-color: #f8fafc;
+                border-radius: 4px;
+                border: 1px solid #e2e8f0;
+            }
+            .tasks {
+                margin-top: 20px;
+            }
+            .task {
+                background-color: white;
+                border: 1px solid #e2e8f0;
+                border-radius: 4px;
+                padding: 10px;
+                margin-bottom: 10px;
+            }
+            .task-header {
+                display: flex;
+                justify-content: space-between;
+                margin-bottom: 5px;
+            }
+            .task-id {
+                font-weight: bold;
+                color: #3182ce;
+            }
+            .task-status {
+                padding: 2px 8px;
+                border-radius: 10px;
+                font-size: 12px;
+                font-weight: bold;
+            }
+            .task-status.pending {
+                background-color: #fefcbf;
+                color: #b7791f;
+            }
+            .task-status.processing {
+                background-color: #bee3f8;
+                color: #2b6cb0;
+            }
+            .task-status.completed {
+                background-color: #c6f6d5;
+                color: #2f855a;
+            }
+            .task-status.failed {
+                background-color: #fed7d7;
+                color: #c53030;
+            }
+            pre {
+                background-color: #f8fafc;
+                padding: 10px;
+                border-radius: 4px;
+                overflow-x: auto;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <h1>Web Scraper</h1>
+            
+            <form id="scrape-form">
+                <div class="form-group">
+                    <label for="url">URL to Scrape</label>
+                    <input type="url" id="url" name="url" placeholder="https://example.com" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="format">Format</label>
+                    <select id="format" name="format">
+                        <option value="text">Text</option>
+                        <option value="html">HTML</option>
+                        <option value="json">JSON</option>
+                        <option value="links">Links</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label for="selectors">CSS Selectors (JSON)</label>
+                    <textarea id="selectors" name="selectors" rows="3" placeholder='{"title": "h1", "content": ".main-content"}'></textarea>
+                </div>
+                
+                <button type="submit">Scrape</button>
+            </form>
+            
+            <div id="result" class="result" style="display: none;">
+                <h3>Result</h3>
+                <pre id="result-content"></pre>
+            </div>
+            
+            <div class="tasks">
+                <h3>Recent Tasks</h3>
+                <div id="tasks-list"></div>
+            </div>
+        </div>
+        
+        <script>
+            document.getElementById('scrape-form').addEventListener('submit', async (e) => {
+                e.preventDefault();
+                
+                const url = document.getElementById('url').value;
+                const format = document.getElementById('format').value;
+                let selectors = null;
+                
+                try {
+                    const selectorsText = document.getElementById('selectors').value;
+                    if (selectorsText) {
+                        selectors = JSON.parse(selectorsText);
+                    }
+                } catch (err) {
+                    alert('Invalid JSON in selectors field');
+                    return;
+                }
+                
+                try {
+                    const response = await fetch('/api/scrape', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            url,
+                            format,
+                            selectors
+                        })
+                    });
+                    
+                    const data = await response.json();
+                    
+                    if (response.ok) {
+                        alert(`Task created with ID: ${data.task_id}`);
+                        loadTasks();
+                    } else {
+                        alert(`Error: ${data.error}`);
+                    }
+                } catch (err) {
+                    console.error('Error:', err);
+                    alert('Failed to submit scraping task');
+                }
+            });
+            
+            async function loadTasks() {
+                try {
+                    const response = await fetch('/api/tasks');
+                    const tasks = await response.json();
+                    
+                    const tasksListElement = document.getElementById('tasks-list');
+                    tasksListElement.innerHTML = '';
+                    
+                    if (tasks.length === 0) {
+                        tasksListElement.innerHTML = '<p>No tasks yet</p>';
+                        return;
+                    }
+                    
+                    // Sort tasks by created_at (newest first)
+                    tasks.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+                    
+                    tasks.forEach(task => {
+                        const taskElement = document.createElement('div');
+                        taskElement.className = 'task';
+                        taskElement.innerHTML = `
+                            <div class="task-header">
+                                <span class="task-id">#${task.id}</span>
+                                <span class="task-status ${task.status}">${task.status}</span>
+                            </div>
+                            <div>URL: ${task.url}</div>
+                            <div>Format: ${task.format}</div>
+                            <div>Created: ${new Date(task.created_at).toLocaleString()}</div>
+                            <button onclick="viewTaskResult('${task.id}')" ${task.status !== 'completed' ? 'disabled' : ''}>
+                                View Result
+                            </button>
+                        `;
+                        tasksListElement.appendChild(taskElement);
+                    });
+                } catch (err) {
+                    console.error('Error loading tasks:', err);
+                }
+            }
+            
+            async function viewTaskResult(taskId) {
+                try {
+                    const response = await fetch(`/api/tasks/${taskId}`);
+                    const task = await response.json();
+                    
+                    const resultElement = document.getElementById('result');
+                    const resultContentElement = document.getElementById('result-content');
+                    
+                    if (task.status === 'completed') {
+                        resultElement.style.display = 'block';
+                        resultContentElement.textContent = JSON.stringify(task.result, null, 2);
+                    } else {
+                        alert(`Task is ${task.status}, not completed yet`);
+                    }
+                } catch (err) {
+                    console.error('Error viewing task result:', err);
+                    alert('Failed to load task result');
+                }
+            }
+            
+            // Load tasks on page load
+            loadTasks();
+            
+            // Refresh tasks every 5 seconds
+            setInterval(loadTasks, 5000);
+        </script>
+    </body>
+    </html>
+    '''
+    return render_template_string(html)
 
 if __name__ == '__main__':
     # Generate some demo data

@@ -73,7 +73,20 @@ const ServiceStatus: React.FC<ServiceStatusProps> = ({ showDetails = false }) =>
           >
             <div className="service-name">{service.name}</div>
             <div className="service-status">{service.status}</div>
-            <div className="service-url">{service.url}</div>
+            <div className="service-url">
+              {service.status === 'available' ? (
+                <a 
+                  href={service.url.replace(/http:\/\/[^:]+/, 'http://localhost')} 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="service-link"
+                >
+                  {service.url}
+                </a>
+              ) : (
+                service.url
+              )}
+            </div>
           </div>
         ))}
       </div>
@@ -124,6 +137,15 @@ const ServiceStatus: React.FC<ServiceStatusProps> = ({ showDetails = false }) =>
           font-size: 0.75rem;
           color: #4b5563;
           word-break: break-all;
+        }
+        
+        .service-link {
+          color: #2563eb;
+          text-decoration: underline;
+        }
+        
+        .service-link:hover {
+          color: #1d4ed8;
         }
         
         .service-status-indicator {
