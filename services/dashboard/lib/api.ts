@@ -289,44 +289,77 @@ export const checkAllServices = async () => {
     // Determine if we're running in the browser
     const isBrowser = typeof window !== 'undefined';
     
-    // Get services from MCP Konnect - use client URL if in browser
-    const konnectURL = isBrowser ? CLIENT_MCP_KONNECT_URL : MCP_KONNECT_URL;
-    const servicesResponse = await axios.get(`${konnectURL}/api/services`);
-    
-    if (servicesResponse.data && Array.isArray(servicesResponse.data)) {
-      const servicesList = servicesResponse.data.map(service => {
-        // Get the appropriate URL for the service
-        let displayUrl = service.url;
-        
-        // If in browser, translate Docker internal URLs to localhost URLs
-        if (isBrowser) {
-          if (service.name === 'MCP REST API') displayUrl = CLIENT_MCP_REST_API_URL;
-          else if (service.name === 'claude-task-master') displayUrl = CLIENT_CLAUDE_TASK_MASTER_URL;
-          else if (service.name === 'scraper') displayUrl = CLIENT_SCRAPER_URL;
-          else if (service.name === 'browser-tools') displayUrl = CLIENT_BROWSER_TOOLS_URL;
-          else if (service.name === 'debug-visualizer') displayUrl = CLIENT_DEBUG_VISUALIZER_URL;
-          else if (service.name === 'nodejs-debugger') displayUrl = CLIENT_NODEJS_DEBUGGER_URL;
-          else if (service.name === 'kaneo') displayUrl = CLIENT_KANEO_URL;
-        }
-        
-        return {
-          name: service.name,
-          url: displayUrl,
-          status: service.status === 'active' ? 'available' : 'unavailable'
-        };
-      });
-      
-      // Add MCP Konnect to the list which isn't part of the returned services
-      servicesList.push({
+    // Define all services we want to check
+    const servicesToCheck = [
+      {
+        name: 'MCP REST API',
+        url: isBrowser ? CLIENT_MCP_REST_API_URL : MCP_REST_API_URL,
+        endpoint: '/health'
+      },
+      {
         name: 'MCP Konnect',
         url: isBrowser ? CLIENT_MCP_KONNECT_URL : MCP_KONNECT_URL,
-        status: 'available'
-      });
-      
-      return servicesList;
-    }
+        endpoint: '/api/services'
+      },
+      {
+        name: 'Claude Task Master',
+        url: isBrowser ? CLIENT_CLAUDE_TASK_MASTER_URL : CLAUDE_TASK_MASTER_URL,
+        endpoint: '/health'
+      },
+      {
+        name: 'Scraper',
+        url: isBrowser ? CLIENT_SCRAPER_URL : SCRAPER_URL,
+        endpoint: '/health'
+      },
+      {
+        name: 'Browser Tools',
+        url: isBrowser ? CLIENT_BROWSER_TOOLS_URL : BROWSER_TOOLS_URL,
+        endpoint: '/health'
+      },
+      {
+        name: 'Debug Visualizer',
+        url: isBrowser ? CLIENT_DEBUG_VISUALIZER_URL : DEBUG_VISUALIZER_URL,
+        endpoint: '/health'
+      },
+      {
+        name: 'Node.js Debugger',
+        url: isBrowser ? CLIENT_NODEJS_DEBUGGER_URL : NODEJS_DEBUGGER_URL,
+        endpoint: '/health'
+      },
+      {
+        name: 'Kaneo',
+        url: isBrowser ? CLIENT_KANEO_URL : KANEO_URL,
+        endpoint: '/health'
+      },
+      {
+        name: 'API Keys Service',
+        url: isBrowser ? CLIENT_API_KEYS_SERVICE_URL : API_KEYS_SERVICE_URL,
+        endpoint: '/health'
+      }
+    ];
     
-    throw new Error('Invalid services response format');
+    // Check each service individually
+    const servicesStatus = await Promise.all(
+      servicesToCheck.map(async (service) => {
+        try {
+          await axios.get(`${service.url}${service.endpoint}`, { timeout: 5000 });
+          return {
+            name: service.name,
+            url: service.url,
+            status: 'available'
+          };
+        } catch (error) {
+          console.warn(`Service ${service.name} is unavailable:`, error.message);
+          return {
+            name: service.name,
+            url: service.url,
+            status: 'unavailable'
+          };
+        }
+      })
+    );
+    
+    return servicesStatus;
   } catch (error) {
     console.error('Error checking services:', error);
     
@@ -343,6 +376,17 @@ export const checkAllServices = async () => {
       { name: 'Debug Visualizer', url: isBrowser ? CLIENT_DEBUG_VISUALIZER_URL : DEBUG_VISUALIZER_URL, status: 'unavailable' },
       { name: 'Node.js Debugger', url: isBrowser ? CLIENT_NODEJS_DEBUGGER_URL : NODEJS_DEBUGGER_URL, status: 'unavailable' },
       { name: 'Kaneo', url: isBrowser ? CLIENT_KANEO_URL : KANEO_URL, status: 'unavailable' },
+      { name: 'API Keys Service', url: isBrowser ? CLIENT_API_KEYS_SERVICE_URL : API_KEYS_SERVICE_URL, status: 'unavailable' }
     ];
+  }
+};
+
+export const getServiceLogs = async (serviceName) => {
+  try {
+    const response = await axios.get(`/api/logs/${serviceName}`);
+    return response.data;
+  } catch (error) {
+    console.error(`Error fetching logs for ${serviceName}:`, error);
+    throw error;
   }
 }; 

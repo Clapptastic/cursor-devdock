@@ -5,12 +5,18 @@ interface Dependency {
   name: string;
   currentVersion: string;
   latestVersion: string;
-  updateType: 'patch' | 'minor' | 'major';
+  updateType: 'patch' | 'minor' | 'major' | null;
   selected: boolean;
 }
 
 interface RenovateUIProps {
   title?: string;
+}
+
+interface ConfigOption {
+  key: string;
+  value: any;
+  description: string;
 }
 
 const RenovateUI: React.FC<RenovateUIProps> = ({ title = 'Dependency Manager' }) => {
@@ -23,6 +29,16 @@ const RenovateUI: React.FC<RenovateUIProps> = ({ title = 'Dependency Manager' })
   const [filter, setFilter] = useState<string>('all');
   const [detailsLog, setDetailsLog] = useState<string>('');
   const [showDetails, setShowDetails] = useState<boolean>(false);
+  const [showConfig, setShowConfig] = useState<boolean>(false);
+  const [config, setConfig] = useState<string>('');
+  const [configError, setConfigError] = useState<string | null>(null);
+  const [configOptions, setConfigOptions] = useState<ConfigOption[]>([
+    { key: 'automerge', value: false, description: 'Automatically merge PRs when tests pass' },
+    { key: 'dependencyDashboard', value: true, description: 'Generate a dashboard issue to track updates' },
+    { key: 'schedule', value: ['after 10pm', 'before 5am'], description: 'Schedule when Renovate creates PRs' },
+    { key: 'labels', value: ['dependencies'], description: 'Labels to add to PRs' },
+    { key: 'prConcurrentLimit', value: 5, description: 'Maximum number of concurrent PRs' }
+  ]);
 
   const scanForUpdates = async () => {
     setScanning(true);
@@ -160,6 +176,71 @@ const RenovateUI: React.FC<RenovateUIProps> = ({ title = 'Dependency Manager' })
     }
   };
 
+  const fetchConfig = async () => {
+    setLoading(true);
+    setConfigError(null);
+    
+    try {
+      const response = await axios.get('/api/renovate/config');
+      if (response.data.success) {
+        setConfig(JSON.stringify(response.data.config, null, 2));
+      } else {
+        setConfigError(response.data.error || 'Failed to fetch configuration');
+      }
+    } catch (err: any) {
+      setConfigError(err.message || 'An error occurred while fetching configuration');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const saveConfig = async () => {
+    setLoading(true);
+    setConfigError(null);
+    
+    try {
+      // Validate JSON
+      const parsedConfig = JSON.parse(config);
+      
+      const response = await axios.post('/api/renovate/config', { 
+        config: parsedConfig 
+      });
+      
+      if (response.data.success) {
+        setSuccessMessage('Configuration saved successfully');
+      } else {
+        setConfigError(response.data.error || 'Failed to save configuration');
+      }
+    } catch (err: any) {
+      setConfigError(err.message || 'Invalid JSON configuration');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const toggleConfigOption = (index: number) => {
+    const newOptions = [...configOptions];
+    if (typeof newOptions[index].value === 'boolean') {
+      newOptions[index].value = !newOptions[index].value;
+    }
+    setConfigOptions(newOptions);
+    
+    try {
+      // Update config string with new options
+      const configObj = JSON.parse(config);
+      configObj[newOptions[index].key] = newOptions[index].value;
+      setConfig(JSON.stringify(configObj, null, 2));
+    } catch (err) {
+      // If parsing fails, don't update config
+    }
+  };
+
+  useEffect(() => {
+    if (showConfig && !config) {
+      fetchConfig();
+    }
+  }, [showConfig, config]);
+
   return (
     <div className="renovate-container">
       <h3 className="renovate-title">{title}</h3>
@@ -179,6 +260,14 @@ const RenovateUI: React.FC<RenovateUIProps> = ({ title = 'Dependency Manager' })
           disabled={scanning || updating || dependencies.length === 0}
         >
           {updating ? 'Updating...' : 'Update Selected'}
+        </button>
+        
+        <button 
+          className="renovate-button config"
+          onClick={() => setShowConfig(!showConfig)}
+          disabled={loading}
+        >
+          {showConfig ? 'Hide Configuration' : 'Show Configuration'}
         </button>
       </div>
 
@@ -205,6 +294,53 @@ const RenovateUI: React.FC<RenovateUIProps> = ({ title = 'Dependency Manager' })
       {showDetails && detailsLog && (
         <div className="details-log">
           <pre>{detailsLog}</pre>
+        </div>
+      )}
+      
+      {showConfig && (
+        <div className="config-section">
+          <h3>Renovate Configuration</h3>
+          
+          {configError && <div className="error-message">{configError}</div>}
+          
+          <div className="config-options">
+            <h4>Quick Configuration</h4>
+            <div className="options-grid">
+              {configOptions.map((option, index) => (
+                <div key={option.key} className="option-item">
+                  <label>
+                    {typeof option.value === 'boolean' ? (
+                      <input 
+                        type="checkbox" 
+                        checked={option.value} 
+                        onChange={() => toggleConfigOption(index)}
+                      />
+                    ) : null}
+                    <span>{option.key}</span>
+                  </label>
+                  <p className="option-description">{option.description}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+          
+          <div className="config-editor">
+            <h4>JSON Configuration</h4>
+            <textarea 
+              value={config} 
+              onChange={(e) => setConfig(e.target.value)} 
+              rows={10} 
+              disabled={loading}
+            />
+            <div className="config-buttons">
+              <button onClick={fetchConfig} disabled={loading}>
+                Refresh
+              </button>
+              <button onClick={saveConfig} disabled={loading}>
+                Save Configuration
+              </button>
+            </div>
+          </div>
         </div>
       )}
       
@@ -336,6 +472,15 @@ const RenovateUI: React.FC<RenovateUIProps> = ({ title = 'Dependency Manager' })
         
         .renovate-button.update:hover {
           background-color: #047857;
+        }
+        
+        .renovate-button.config {
+          background-color: #7c3aed;
+          color: white;
+        }
+        
+        .renovate-button.config:hover {
+          background-color: #6d28d9;
         }
         
         .renovate-button:disabled {
@@ -512,6 +657,86 @@ const RenovateUI: React.FC<RenovateUIProps> = ({ title = 'Dependency Manager' })
           padding: 2rem;
           text-align: center;
           color: #6b7280;
+        }
+        
+        .config-section {
+          background-color: white;
+          border-radius: 0.5rem;
+          border: 1px solid #e5e7eb;
+          padding: 1.5rem;
+          margin-bottom: 1.5rem;
+        }
+        
+        .config-section h3 {
+          margin-top: 0;
+          margin-bottom: 1rem;
+          color: #1a1a2e;
+        }
+        
+        .config-section h4 {
+          margin-top: 1rem;
+          margin-bottom: 0.75rem;
+          color: #1a1a2e;
+        }
+        
+        .config-options {
+          margin-bottom: 1.5rem;
+        }
+        
+        .options-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+          gap: 1rem;
+        }
+        
+        .option-item {
+          padding: 0.75rem;
+          background-color: #f8fafc;
+          border-radius: 0.375rem;
+          border: 1px solid #e2e8f0;
+        }
+        
+        .option-item label {
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+          font-weight: 500;
+        }
+        
+        .option-description {
+          margin-top: 0.5rem;
+          margin-bottom: 0;
+          color: #64748b;
+          font-size: 0.875rem;
+        }
+        
+        .config-editor {
+          margin-top: 1.5rem;
+        }
+        
+        .config-editor textarea {
+          width: 100%;
+          padding: 0.75rem;
+          border-radius: 0.375rem;
+          border: 1px solid #e2e8f0;
+          font-family: monospace;
+          font-size: 0.875rem;
+          resize: vertical;
+          margin-bottom: 1rem;
+        }
+        
+        .config-buttons {
+          display: flex;
+          gap: 0.5rem;
+        }
+        
+        .config-buttons button {
+          background-color: #4b5563;
+          color: white;
+        }
+        
+        .config-buttons button:hover:not(:disabled) {
+          background-color: #374151;
         }
       `}</style>
     </div>

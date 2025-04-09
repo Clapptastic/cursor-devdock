@@ -172,16 +172,6 @@ const Dashboard = () => {
             </div>
           </Link>
           
-          <Link href="/todo">
-            <div className="service-card todo-card">
-              <h2>Task Manager</h2>
-              <p>Manage your development tasks and track your progress with a simple todo application.</p>
-              <div className="service-actions">
-                <span className="view-button">Open Task Manager</span>
-              </div>
-            </div>
-          </Link>
-          
           <Link href="/renovate">
             <div className="service-card renovate-card">
               <h2>Dependency Manager</h2>

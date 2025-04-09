@@ -41,14 +41,71 @@ const RenovatePage: React.FC = () => {
           </div>
 
           <div className="renovate-docs">
-            <h3>Additional Options</h3>
+            <h3>Additional Configuration Options</h3>
             <p>For advanced Renovate configuration, you can:</p>
             <ul>
               <li>Create a <code>renovate.json</code> file at the root of your project</li>
               <li>Configure package rules for specific dependencies</li>
               <li>Set up automated PRs for your repository</li>
-              <li>Schedule updates during specific time windows</li>
             </ul>
+
+            <div className="renovate-config-sections">
+              <div className="config-section">
+                <h4>Configuration File</h4>
+                <p>You can store your Renovate configuration in one of these locations:</p>
+                <ul>
+                  <li><code>renovate.json</code></li>
+                  <li><code>renovate.json5</code></li>
+                  <li><code>.github/renovate.json</code></li>
+                  <li><code>.gitlab/renovate.json</code></li>
+                  <li><code>.renovaterc.json</code></li>
+                  <li><code>package.json</code> (within a <code>"renovate"</code> section)</li>
+                </ul>
+              </div>
+
+              <div className="config-section">
+                <h4>Package Rules</h4>
+                <p>Use <code>packageRules</code> to apply settings to specific packages:</p>
+                <pre>{`{
+  "packageRules": [
+    {
+      "matchPackagePatterns": ["^eslint"],
+      "groupName": "eslint packages",
+      "automerge": true
+    },
+    {
+      "matchDepTypes": ["devDependencies"],
+      "schedule": ["after 10pm every weekday"]
+    }
+  ]
+}`}</pre>
+              </div>
+
+              <div className="config-section">
+                <h4>Automated PR Settings</h4>
+                <p>Control how PRs are created and managed:</p>
+                <ul>
+                  <li><code>automerge</code> - Enable automatic merging of PRs</li>
+                  <li><code>dependencyDashboard</code> - Create a dashboard issue to manage updates</li>
+                  <li><code>schedule</code> - Define when Renovate creates PRs</li>
+                  <li><code>labels</code> - Add custom labels to PRs</li>
+                  <li><code>assignees</code> - Automatically assign PRs to team members</li>
+                </ul>
+              </div>
+              
+              <div className="config-section">
+                <h4>Preset Configurations</h4>
+                <p>Utilize existing presets to quickly configure Renovate:</p>
+                <pre>{`{
+  "extends": [
+    "config:base",
+    ":automergeMinor",
+    ":preserveSemverRanges"
+  ]
+}`}</pre>
+              </div>
+            </div>
+
             <a href="https://docs.renovatebot.com/" target="_blank" rel="noopener noreferrer" className="doc-link">
               Read the full Renovate documentation
             </a>
@@ -169,6 +226,13 @@ const RenovatePage: React.FC = () => {
         .renovate-docs h3 {
           margin-top: 0;
           color: #1a1a2e;
+          margin-bottom: 1rem;
+        }
+        
+        .renovate-docs h4 {
+          color: #1a1a2e;
+          margin-top: 0;
+          margin-bottom: 0.75rem;
         }
         
         .renovate-docs ul {
@@ -196,10 +260,36 @@ const RenovatePage: React.FC = () => {
           text-decoration: none;
           font-weight: 500;
           transition: background-color 0.2s;
+          margin-top: 1rem;
         }
         
         .doc-link:hover {
           background-color: #4338ca;
+        }
+        
+        .renovate-config-sections {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+          gap: 1.5rem;
+          margin-top: 1.5rem;
+          margin-bottom: 1.5rem;
+        }
+        
+        .config-section {
+          background-color: #f8fafc;
+          border-radius: 0.375rem;
+          padding: 1rem;
+          border: 1px solid #e2e8f0;
+        }
+        
+        pre {
+          background-color: #1e293b;
+          color: #e2e8f0;
+          padding: 1rem;
+          border-radius: 0.375rem;
+          overflow-x: auto;
+          font-size: 0.875rem;
+          line-height: 1.5;
         }
       `}</style>
     </div>

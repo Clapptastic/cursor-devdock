@@ -132,81 +132,27 @@ async function storeApiKey(name, service, key) {
   return { id: null, created: false };
 }
 
-// Generate some initial demo tasks
-function generateDemoTasks() {
-  const demoTasks = [
-    {
-      id: String(taskIdCounter++),
-      title: "Analyze API payload structure",
-      prompt: "I need to understand the structure of the JSON payload being returned from our user analytics API endpoint. Can you analyze it and help me identify the key fields I should focus on?",
-      context: "The API endpoint is /api/user-analytics and I'm trying to build a dashboard.",
-      model: "claude-3-sonnet-20240229",
-      priority: "normal",
-      status: "completed",
-      createdAt: new Date(Date.now() - 86400000).toISOString(), // 1 day ago
-      startedAt: new Date(Date.now() - 86340000).toISOString(),
-      completedAt: new Date(Date.now() - 86300000).toISOString(),
-      dependencies: [],
-      subtasks: [
-        {
-          id: "1.1",
-          title: "Identify key metrics in payload",
-          status: "completed",
-          description: "Review the payload to identify the primary metrics and KPIs that would be valuable for the dashboard."
-        },
-        {
-          id: "1.2",
-          title: "Document payload structure",
-          status: "completed",
-          description: "Create a structured documentation of the payload format, including data types and field descriptions."
-        },
-        {
-          id: "1.3",
-          title: "Recommend visualization approaches",
-          status: "completed",
-          description: "Suggest appropriate visualization types for each key metric identified in the payload."
-        }
-      ],
-      response: "Based on the API payload structure, I recommend focusing on these key fields:\n\n1. `userCount` - Total number of active users\n2. `sessionDuration` - Average time users spend on your platform\n3. `conversionRate` - Percentage of users completing desired actions\n4. `bounceRate` - Percentage of users leaving after viewing only one page\n5. `topDevices` - Breakdown of user device categories\n\nThese fields will give you the most valuable insights for your dashboard."
-    },
-    {
-      id: String(taskIdCounter++),
-      title: "Debug authentication flow",
-      prompt: "I'm having issues with our OAuth implementation. Users are sometimes getting stuck in a redirect loop. Can you help me identify potential causes and solutions?",
-      context: "We're using Auth0 for authentication, and the issue happens on mobile devices more frequently.",
-      model: "claude-3-opus-20240229",
-      priority: "high",
-      status: "in_progress",
-      createdAt: new Date(Date.now() - 3600000).toISOString(), // 1 hour ago
-      startedAt: new Date(Date.now() - 3540000).toISOString(),
-      completedAt: null,
-      dependencies: [],
-      subtasks: []
-    },
-    {
-      id: String(taskIdCounter++),
-      title: "Improve SQL query performance",
-      prompt: "I have a complex SQL query that's taking too long to execute. Can you review it and suggest optimizations?",
-      context: "SELECT o.order_id, c.customer_name, SUM(oi.quantity * p.price) as total_amount FROM orders o JOIN customers c ON o.customer_id = c.customer_id JOIN order_items oi ON o.order_id = oi.order_id JOIN products p ON oi.product_id = p.product_id WHERE o.order_date BETWEEN '2023-01-01' AND '2023-12-31' GROUP BY o.order_id, c.customer_name ORDER BY total_amount DESC;",
-      model: "claude-3-haiku-20240307",
-      priority: "urgent",
-      status: "pending",
-      createdAt: new Date(Date.now() - 300000).toISOString(), // 5 minutes ago
-      startedAt: null,
-      completedAt: null,
-      dependencies: ["1", "2"],
-      subtasks: []
-    }
-  ];
-
-  // Store demo tasks in our in-memory storage
-  demoTasks.forEach(task => {
-    tasks.set(task.id, task);
-  });
+// Function to initialize the task master
+async function initializeTaskMaster() {
+  console.log('Initializing Claude Task Master...');
+  
+  try {
+    // Register the service with MCP
+    await axios.post(`${MCP_REST_API_URL}/api/services/register`, {
+      name: 'Claude Task Master',
+      url: `http://claude-task-master:${PORT}`,
+      description: 'AI-powered task-management system to break down complex projects into manageable tasks',
+      status: 'available',
+      type: 'service'
+    });
+    console.log('Registered Claude Task Master with MCP REST API');
+  } catch (error) {
+    console.error('Error registering service:', error.message);
+  }
 }
 
-// Generate demo tasks on startup
-generateDemoTasks();
+// Initialize the service on startup
+initializeTaskMaster();
 
 // API to handle task submissions
 app.post('/api/tasks', async (req, res) => {
