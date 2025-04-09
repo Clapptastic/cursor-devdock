@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Debug Visualizer</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+      margin: 0;
+      padding: 20px;
+      background-color: #f5f5f5;
+    }
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      background-color: white;
+      padding: 20px;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    h1 {
+      color: #1a1a2e;
+      margin-top: 0;
+    }
+    .input-section {
+      margin-bottom: 20px;
+    }
+    .controls {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+    select, button {
+      padding: 8px 12px;
+      border-radius: 4px;
+    }
+    select {
+      border: 1px solid #ddd;
+    }
+    button {
+      background-color: #4361ee;
+      color: white;
+      border: none;
+      cursor: pointer;
+    }
+    textarea {
+      width: 100%;
+      height: 200px;
+      padding: 10px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      font-family: monospace;
+      resize: vertical;
+    }
+    .error {
+      color: #ef4444;
+      margin-top: 8px;
+    }
+    .visualization {
+      padding: 15px;
+      background-color: #f9fafb;
+      border-radius: 4px;
+      min-height: 300px;
+    }
+    pre {
+      margin: 0;
+      white-space: pre-wrap;
+      word-wrap: break-word;
+    }
+    .tree-node {
+      margin: 5px 0;
+    }
+    .tree-node-header {
+      cursor: pointer;
+      user-select: none;
+    }
+    .tree-node-children {
+      padding-left: 20px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Debug Visualizer</h1>
+    
+    <div class="input-section">
+      <div class="controls">
+        <select id="visualization-type">
+          <option value="json">JSON</option>
+          <option value="tree">Tree</option>
+        </select>
+        <button id="visualize-btn">Visualize</button>
+      </div>
+      
+      <textarea id="json-input" placeholder="Paste your JSON data here..."></textarea>
+      <div id="error-message" class="error"></div>
+    </div>
+    
+    <div id="visualization" class="visualization">
+      <div id="empty-message">Enter JSON data and click Visualize to see the result</div>
+      <pre id="json-visualization" style="display: none;"></pre>
+      <div id="tree-visualization" style="display: none;"></div>
+    </div>
+  </div>
+
+  <script>
+    const jsonInput = document.getElementById('json-input');
+    const visualizationType = document.getElementById('visualization-type');
+    const visualizeBtn = document.getElementById('visualize-btn');
+    const errorMessage = document.getElementById('error-message');
+    const emptyMessage = document.getElementById('empty-message');
+
+    visualizeBtn.addEventListener('click', () => {
+      const json = jsonInput.value;
+      const type = visualizationType.value;
+
+      if (json.trim() === '') {
+        errorMessage.textContent = 'Please enter JSON data';
+        return;
+      }
+
+      try {
+        const data = JSON.parse(json);
+        const visualization = document.getElementById('visualization');
+        visualization.style.display = 'block';
+
+        if (type === 'json') {
+          const jsonVisualization = document.getElementById('json-visualization');
+          jsonVisualization.textContent = JSON.stringify(data, null, 2);
+          jsonVisualization.style.display = 'block';
+        } else if (type === 'tree') {
+          const treeVisualization = document.getElementById('tree-visualization');
+          treeVisualization.innerHTML = '';
+          createTree(data, treeVisualization);
+          treeVisualization.style.display = 'block';
+        }
+      } catch (e) {
+        errorMessage.textContent = 'Invalid JSON format';
+      }
+    });
+
+    function createTree(node, parent) {
+      const li = document.createElement('li');
+      li.className = 'tree-node';
+
+      const div = document.createElement('div');
+      div.className = 'tree-node-header';
+      div.textContent = node.constructor === Array ? 'Array' : node.constructor === Object ? 'Object' : String(node);
+      div.onclick = () => {
+        const children = li.querySelectorAll('.tree-node-children');
+        children.forEach(child => child.style.display = child.style.display === 'none' ? 'block' : 'none');
+        div.classList.toggle('expanded');
+      };
+
+      li.appendChild(div);
+
+      if (node.constructor === Array || node.constructor === Object) {
+        const children = document.createElement('ul');
+        children.className = 'tree-node-children';
+        li.appendChild(children);
+
+        Object.entries(node).forEach(([key, value]) => {
+          const childLi = document.createElement('li');
+          childLi.className = 'tree-node';
+          const childDiv = document.createElement('div');
+          childDiv.className = 'tree-node-header';
+          childDiv.textContent = key;
+          childDiv.onclick = () => {
+            const childChildren = childLi.querySelectorAll('.tree-node-children');
+            childChildren.forEach(childChild => childChild.style.display = childChild.style.display === 'none' ? 'block' : 'none');
+            childDiv.classList.toggle('expanded');
+          };
+          childLi.appendChild(childDiv);
+
+          if (value.constructor === Array || value.constructor === Object) {
+            const childChildren = document.createElement('ul');
+            childChildren.className = 'tree-node-children';
+            childLi.appendChild(childChildren);
+            createTree(value, childChildren);
+          } else {
+            const childValue = document.createElement('span');
+            childValue.textContent = String(value);
+            childLi.appendChild(childValue);
+          }
+
+          children.appendChild(childLi);
+        });
+      }
+
+      parent.appendChild(li);
+    }
+  </script>
+</body>
+</html> 
