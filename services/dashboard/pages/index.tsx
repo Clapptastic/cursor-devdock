@@ -181,6 +181,16 @@ const Dashboard = () => {
               </div>
             </div>
           </Link>
+          
+          <Link href="/renovate">
+            <div className="service-card renovate-card">
+              <h2>Dependency Manager</h2>
+              <p>Keep your project dependencies up to date with automated Renovate integration.</p>
+              <div className="service-actions">
+                <span className="view-button">Manage Dependencies</span>
+              </div>
+            </div>
+          </Link>
         </div>
 
         <div className="integration-section">
