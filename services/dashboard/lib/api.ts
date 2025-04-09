@@ -5,6 +5,7 @@ const CLAUDE_TASK_MASTER_URL = process.env.CLAUDE_TASK_MASTER_URL || 'http://loc
 const SCRAPER_URL = process.env.SCRAPER_URL || 'http://localhost:10004';
 const BROWSER_TOOLS_URL = process.env.BROWSER_TOOLS_URL || 'http://localhost:10005';
 const DEBUG_VISUALIZER_URL = process.env.DEBUG_VISUALIZER_URL || 'http://localhost:10006';
+const NODEJS_DEBUGGER_URL = process.env.NODEJS_DEBUGGER_URL || 'http://localhost:10008';
 const KANEO_URL = process.env.KANEO_URL || 'http://localhost:10007';
 const MCP_REST_API_URL = process.env.MCP_REST_API_URL || 'http://localhost:10001';
 const MCP_KONNECT_URL = process.env.MCP_KONNECT_URL || 'http://localhost:10000';
@@ -14,6 +15,7 @@ const CLIENT_CLAUDE_TASK_MASTER_URL = 'http://localhost:10002';
 const CLIENT_SCRAPER_URL = 'http://localhost:10004';
 const CLIENT_BROWSER_TOOLS_URL = 'http://localhost:10005';
 const CLIENT_DEBUG_VISUALIZER_URL = 'http://localhost:10006';
+const CLIENT_NODEJS_DEBUGGER_URL = 'http://localhost:10008';
 const CLIENT_KANEO_URL = 'http://localhost:10007';
 const CLIENT_MCP_REST_API_URL = 'http://localhost:10001';
 const CLIENT_MCP_KONNECT_URL = 'http://localhost:10000';
@@ -33,6 +35,10 @@ export const browserToolsAPI = axios.create({
 
 export const debugVisualizerAPI = axios.create({
   baseURL: DEBUG_VISUALIZER_URL,
+});
+
+export const nodejsDebuggerAPI = axios.create({
+  baseURL: NODEJS_DEBUGGER_URL,
 });
 
 export const kaneoAPI = axios.create({
@@ -161,6 +167,35 @@ export const reportNetworkLog = async (url, method, status, duration, size) => {
   return browserToolsAPI.post('/api/network-logs', { url, method, status, duration, size });
 };
 
+// Node.js Debugger API calls
+export const startDebugSession = async (code, filename) => {
+  return nodejsDebuggerAPI.post('/api/debug/start', { code, filename });
+};
+
+export const getDebugSessions = async () => {
+  return nodejsDebuggerAPI.get('/api/debug/sessions');
+};
+
+export const getDebugSession = async (sessionId) => {
+  return nodejsDebuggerAPI.get(`/api/debug/session/${sessionId}`);
+};
+
+export const executeDebugCommand = async (sessionId, command) => {
+  return nodejsDebuggerAPI.post('/api/debug/execute', { sessionId, command });
+};
+
+export const setDebugBreakpoint = async (sessionId, line, file, action = 'add') => {
+  return nodejsDebuggerAPI.post('/api/debug/breakpoint', { sessionId, line, file, action });
+};
+
+export const debugStep = async (sessionId, action) => {
+  return nodejsDebuggerAPI.post('/api/debug/step', { sessionId, action });
+};
+
+export const stopDebugSession = async (sessionId) => {
+  return nodejsDebuggerAPI.post('/api/debug/stop', { sessionId });
+};
+
 // MCP REST API calls
 export const getMCPServices = async () => {
   return mcpKonnectAPI.get('/api/services');
@@ -202,6 +237,7 @@ export const checkAllServices = async () => {
           else if (service.name === 'scraper') displayUrl = CLIENT_SCRAPER_URL;
           else if (service.name === 'browser-tools') displayUrl = CLIENT_BROWSER_TOOLS_URL;
           else if (service.name === 'debug-visualizer') displayUrl = CLIENT_DEBUG_VISUALIZER_URL;
+          else if (service.name === 'nodejs-debugger') displayUrl = CLIENT_NODEJS_DEBUGGER_URL;
           else if (service.name === 'kaneo') displayUrl = CLIENT_KANEO_URL;
         }
         
@@ -237,6 +273,7 @@ export const checkAllServices = async () => {
       { name: 'Scraper', url: isBrowser ? CLIENT_SCRAPER_URL : SCRAPER_URL, status: 'unavailable' },
       { name: 'Browser Tools', url: isBrowser ? CLIENT_BROWSER_TOOLS_URL : BROWSER_TOOLS_URL, status: 'unavailable' },
       { name: 'Debug Visualizer', url: isBrowser ? CLIENT_DEBUG_VISUALIZER_URL : DEBUG_VISUALIZER_URL, status: 'unavailable' },
+      { name: 'Node.js Debugger', url: isBrowser ? CLIENT_NODEJS_DEBUGGER_URL : NODEJS_DEBUGGER_URL, status: 'unavailable' },
       { name: 'Kaneo', url: isBrowser ? CLIENT_KANEO_URL : KANEO_URL, status: 'unavailable' },
     ];
   }

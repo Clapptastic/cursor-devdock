@@ -45,12 +45,14 @@ services:
       - browser-tools
       - debug-visualizer
       - kaneo
+      - nodejs-debugger
     environment:
       - MCP_KONNECT_URL=http://mcp-konnect:3333
       - CLAUDE_TASK_MASTER_URL=http://claude-task-master:8002
       - SCRAPER_URL=http://scraper:8003
       - BROWSER_TOOLS_URL=http://browser-tools:8004
       - DEBUG_VISUALIZER_URL=http://debug-visualizer:8005
+      - NODEJS_DEBUGGER_URL=http://nodejs-debugger:8005
       - KANEO_URL=http://kaneo:3333
       - MCP_REST_API_URL=http://mcp-rest-api:8001
 
@@ -80,6 +82,17 @@ services:
       - "10006:8005"
     environment:
       - MCP_REST_API_URL=http://mcp-rest-api:8001
+
+  # Node.js Debugger
+  nodejs-debugger:
+    build:
+      context: ./services/nodejs-debugger
+    ports:
+      - "10008:8005"
+      - "9229:9229"
+    environment:
+      - MCP_REST_API_URL=http://mcp-rest-api:8001
+      - PORT=8005
 
   # Kaneo Dashboard
   kaneo:

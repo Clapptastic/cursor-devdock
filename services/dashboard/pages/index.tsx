@@ -107,6 +107,16 @@ const Dashboard = () => {
             </div>
           </a>
 
+          <a href="http://localhost:10008" target="_blank" rel="noopener noreferrer">
+            <div className={`service-card ${services.find(s => s.name === 'Node.js Debugger')?.status === 'available' ? 'available' : 'unavailable'}`}>
+              <h2>Node.js Debugger</h2>
+              <p>Debug Node.js applications with breakpoints, variable inspection, and step-by-step execution.</p>
+              <div className="service-actions">
+                <span className="view-button">Open Debugger</span>
+              </div>
+            </div>
+          </a>
+
           <a href="http://localhost:10004" target="_blank" rel="noopener noreferrer">
             <div className={`service-card ${services.find(s => s.name === 'Scraper')?.status === 'available' ? 'available' : 'unavailable'}`}>
               <h2>Web Scraper</h2>
@@ -158,6 +168,16 @@ const Dashboard = () => {
               <p>Access comprehensive documentation for Claude Task Master and other DevDock services.</p>
               <div className="service-actions">
                 <span className="view-button">View Documentation</span>
+              </div>
+            </div>
+          </Link>
+          
+          <Link href="/todo">
+            <div className="service-card todo-card">
+              <h2>Task Manager</h2>
+              <p>Manage your development tasks and track your progress with a simple todo application.</p>
+              <div className="service-actions">
+                <span className="view-button">Open Task Manager</span>
               </div>
             </div>
           </Link>
