@@ -22,6 +22,8 @@ const BrowserTools = () => {
   });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [extensionInstalled, setExtensionInstalled] = useState(false);
+  const [extensionCheckLoading, setExtensionCheckLoading] = useState(true);
 
   // Test data form
   const [testData, setTestData] = useState({
@@ -67,7 +69,41 @@ const BrowserTools = () => {
     // Poll for log updates every 5 seconds
     const interval = setInterval(fetchLogs, 5000);
     
-    return () => clearInterval(interval);
+    // Check if the extension is installed
+    const checkExtension = () => {
+      try {
+        // Send a message to the extension to check if it's installed
+        if (window.chrome && window.chrome.runtime) {
+          window.chrome.runtime.sendMessage(
+            'devdock-browser-monitor-extension-id', // This ID would be your actual extension ID
+            { action: 'checkConnection' },
+            function(response) {
+              if (response && response.connected) {
+                setExtensionInstalled(true);
+              } else {
+                setExtensionInstalled(false);
+              }
+              setExtensionCheckLoading(false);
+            }
+          );
+        } else {
+          setExtensionInstalled(false);
+          setExtensionCheckLoading(false);
+        }
+      } catch (err) {
+        console.error('Error checking extension:', err);
+        setExtensionInstalled(false);
+        setExtensionCheckLoading(false);
+      }
+    };
+
+    checkExtension();
+    const extensionCheckInterval = setInterval(checkExtension, 10000);
+    
+    return () => {
+      clearInterval(interval);
+      clearInterval(extensionCheckInterval);
+    }
   }, []);
 
   const handleInputChange = (e) => {
@@ -115,6 +151,11 @@ const BrowserTools = () => {
     }
   };
 
+  const handleInstallExtension = () => {
+    // This would be the URL to your extension in the Chrome Web Store
+    window.open('https://chrome.google.com/webstore/detail/devdock-browser-monitor/extension-id', '_blank');
+  };
+
   return (
     <div className="container">
       <Head>
@@ -124,6 +165,37 @@ const BrowserTools = () => {
       <h1 className="title">Browser Monitoring Tools</h1>
       
       <ServiceStatus showDetails={false} />
+
+      <div className="extension-prompt">
+        <div className="extension-card">
+          <div className="extension-header">
+            <h3>Browser Extension</h3>
+            {extensionCheckLoading ? (
+              <div className="extension-status loading">Checking...</div>
+            ) : extensionInstalled ? (
+              <div className="extension-status connected">Connected</div>
+            ) : (
+              <div className="extension-status disconnected">Not Installed</div>
+            )}
+          </div>
+          <p>
+            The Browser Monitoring Tool requires a Chrome extension to capture logs, errors, and network activity from your browser.
+          </p>
+          {!extensionInstalled && (
+            <button 
+              className="extension-install-btn" 
+              onClick={handleInstallExtension}
+            >
+              Install Chrome Extension
+            </button>
+          )}
+          {extensionInstalled && (
+            <p className="extension-success">
+              Extension is installed and connected! Browser activity is now being monitored.
+            </p>
+          )}
+        </div>
+      </div>
 
       <div className="tabs">
         <div
@@ -558,6 +630,90 @@ const BrowserTools = () => {
         
         .submit-btn:hover {
           background-color: #0f0f1a;
+        }
+        
+        .extension-prompt {
+          margin-bottom: 20px;
+        }
+        
+        .extension-card {
+          background-color: #ffffff;
+          border-radius: 6px;
+          padding: 20px;
+          box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+          border: 1px solid #e2e8f0;
+        }
+        
+        .extension-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          margin-bottom: 10px;
+        }
+        
+        .extension-header h3 {
+          margin: 0;
+          color: #4a6cf7;
+        }
+        
+        .extension-status {
+          display: flex;
+          align-items: center;
+          font-size: 0.9rem;
+          font-weight: 500;
+        }
+        
+        .extension-status:before {
+          content: '';
+          display: inline-block;
+          width: 10px;
+          height: 10px;
+          border-radius: 50%;
+          margin-right: 6px;
+        }
+        
+        .extension-status.connected {
+          color: #28a745;
+        }
+        
+        .extension-status.connected:before {
+          background-color: #28a745;
+        }
+        
+        .extension-status.disconnected {
+          color: #dc3545;
+        }
+        
+        .extension-status.disconnected:before {
+          background-color: #dc3545;
+        }
+        
+        .extension-status.loading {
+          color: #ffc107;
+        }
+        
+        .extension-status.loading:before {
+          background-color: #ffc107;
+        }
+        
+        .extension-install-btn {
+          background-color: #4a6cf7;
+          color: white;
+          border: none;
+          border-radius: 4px;
+          padding: 8px 16px;
+          font-size: 0.9rem;
+          cursor: pointer;
+          transition: background-color 0.2s;
+        }
+        
+        .extension-install-btn:hover {
+          background-color: #3a5bd7;
+        }
+        
+        .extension-success {
+          color: #28a745;
+          font-weight: 500;
         }
       `}</style>
     </div>

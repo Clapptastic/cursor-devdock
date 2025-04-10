@@ -245,6 +245,88 @@
       background-color: #ffebee;
       color: #b71c1c;
     }
+    
+    /* Extension prompt panel */
+    .extension-panel {
+      background-color: var(--card-bg);
+      border-radius: 6px;
+      padding: 20px;
+      margin-bottom: 20px;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+    }
+    
+    .extension-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 15px;
+    }
+    
+    .extension-header h2 {
+      margin: 0;
+      font-size: 1.2rem;
+      color: var(--primary);
+    }
+    
+    .extension-status {
+      display: flex;
+      align-items: center;
+      font-size: 0.9rem;
+    }
+    
+    .extension-indicator {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      margin-right: 8px;
+    }
+    
+    .extension-indicator.installed {
+      background-color: var(--success);
+    }
+    
+    .extension-indicator.not-installed {
+      background-color: var(--danger);
+    }
+    
+    .extension-indicator.checking {
+      background-color: var(--warning);
+    }
+    
+    .extension-content {
+      margin-bottom: 15px;
+    }
+    
+    .extension-actions {
+      display: flex;
+      justify-content: flex-start;
+    }
+    
+    .install-button {
+      padding: 8px 16px;
+      border-radius: 4px;
+      border: none;
+      background-color: var(--primary);
+      color: white;
+      cursor: pointer;
+      font-size: 0.9rem;
+      transition: background-color 0.2s;
+      display: flex;
+      align-items: center;
+    }
+    
+    .install-button svg {
+      margin-right: 8px;
+    }
+    
+    .install-button:hover {
+      background-color: #3a5bd7;
+    }
+    
+    .extension-success {
+      color: var(--success);
+      font-weight: 500;
+    }
   </style>
 </head>
 <body>
@@ -256,6 +338,41 @@
         <span id="connection-text">Disconnected</span>
       </div>
     </header>
+    
+    <!-- Chrome Extension Info Panel -->
+    <div class="extension-panel" id="extension-panel">
+      <div class="extension-header">
+        <h2>Chrome Extension</h2>
+        <div class="extension-status">
+          <div class="extension-indicator checking" id="extension-indicator"></div>
+          <span id="extension-status-text">Checking...</span>
+        </div>
+      </div>
+      <div class="extension-content">
+        <p>
+          The Browser Monitoring Tool requires a Chrome extension to capture logs, errors, 
+          and network activity from your browser in real-time.
+        </p>
+        <div id="extension-details">
+          <p>Installing the extension allows:</p>
+          <ul>
+            <li>Automatic capture of console logs and errors</li>
+            <li>Network request monitoring</li>
+            <li>Performance metrics collection</li>
+            <li>Real-time browser event tracking</li>
+          </ul>
+        </div>
+      </div>
+      <div class="extension-actions" id="extension-actions">
+        <button class="install-button" id="install-extension-btn">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+            <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"/>
+            <path d="M8 4a.5.5 0 0 1 .5.5v3h3a.5.5 0 0 1 0 1h-3v3a.5.5 0 0 1-1 0v-3h-3a.5.5 0 0 1 0-1h3v-3A.5.5 0 0 1 8 4z"/>
+          </svg>
+          Install Chrome Extension
+        </button>
+      </div>
+    </div>
     
     <div class="tabs">
       <div class="tab active" data-tab="browser-logs">Browser Logs</div>
@@ -541,6 +658,89 @@
         })
         .catch(error => console.error('Error clearing logs:', error));
     });
+    
+    // Extension status check
+    const extensionPanel = document.getElementById('extension-panel');
+    const extensionIndicator = document.getElementById('extension-indicator');
+    const extensionStatusText = document.getElementById('extension-status-text');
+    const extensionActions = document.getElementById('extension-actions');
+    const installExtensionBtn = document.getElementById('install-extension-btn');
+    
+    // Function to check if the extension is installed
+    function checkExtensionStatus() {
+      if (window.chrome && window.chrome.runtime) {
+        try {
+          window.chrome.runtime.sendMessage(
+            'devdock-browser-monitor-extension-id', // This would be your actual extension ID
+            { action: 'checkConnection' },
+            function(response) {
+              if (response && response.connected) {
+                setExtensionInstalled(true);
+              } else {
+                setExtensionNotInstalled();
+              }
+            }
+          );
+          
+          // If we don't get a response in 1 second, assume the extension is not installed
+          setTimeout(() => {
+            if (extensionIndicator.classList.contains('checking')) {
+              setExtensionNotInstalled();
+            }
+          }, 1000);
+        } catch (error) {
+          setExtensionNotInstalled();
+        }
+      } else {
+        setExtensionNotInstalled();
+      }
+    }
+    
+    function setExtensionInstalled(installed) {
+      extensionIndicator.classList.remove('checking', 'not-installed');
+      extensionIndicator.classList.add('installed');
+      extensionStatusText.textContent = 'Connected';
+      
+      // Update the actions section
+      extensionActions.innerHTML = `
+        <p class="extension-success">
+          Extension is installed and connected! Browser activity is now being monitored.
+        </p>
+      `;
+    }
+    
+    function setExtensionNotInstalled() {
+      extensionIndicator.classList.remove('checking', 'installed');
+      extensionIndicator.classList.add('not-installed');
+      extensionStatusText.textContent = 'Not Installed';
+      
+      // Show the install button
+      extensionActions.innerHTML = `
+        <button class="install-button" id="install-extension-btn" onclick="installExtension()">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+            <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"/>
+            <path d="M8 4a.5.5 0 0 1 .5.5v3h3a.5.5 0 0 1 0 1h-3v3a.5.5 0 0 1-1 0v-3h-3a.5.5 0 0 1 0-1h3v-3A.5.5 0 0 1 8 4z"/>
+          </svg>
+          Install Chrome Extension
+        </button>
+      `;
+    }
+    
+    function installExtension() {
+      // This would be the URL to your extension in the Chrome Web Store
+      window.open('https://chrome.google.com/webstore/detail/devdock-browser-monitor/extension-id', '_blank');
+    }
+    
+    // Check extension status on page load
+    checkExtensionStatus();
+    
+    // Check extension status every 10 seconds
+    setInterval(checkExtensionStatus, 10000);
+    
+    // Event listener for install button
+    if (installExtensionBtn) {
+      installExtensionBtn.addEventListener('click', installExtension);
+    }
   </script>
 </body>
 </html> 
