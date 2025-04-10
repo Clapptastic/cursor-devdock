@@ -24,6 +24,9 @@ const BrowserTools = () => {
   const [error, setError] = useState('');
   const [extensionInstalled, setExtensionInstalled] = useState(false);
   const [extensionCheckLoading, setExtensionCheckLoading] = useState(true);
+  const [extensionVersion, setExtensionVersion] = useState('');
+  const [latestVersion, setLatestVersion] = useState('');
+  const [checkingForUpdates, setCheckingForUpdates] = useState(false);
 
   // Test data form
   const [testData, setTestData] = useState({
@@ -80,6 +83,10 @@ const BrowserTools = () => {
             function(response) {
               if (response && response.connected) {
                 setExtensionInstalled(true);
+                // Store the version if available
+                if (response.version) {
+                  setExtensionVersion(response.version);
+                }
               } else {
                 setExtensionInstalled(false);
               }
@@ -97,7 +104,29 @@ const BrowserTools = () => {
       }
     };
 
+    // Check for the latest version from GitHub
+    const checkLatestVersion = async () => {
+      try {
+        setCheckingForUpdates(true);
+        const response = await fetch('https://api.github.com/repos/AgentDeskAI/browser-tools-mcp/releases/latest');
+        if (response.ok) {
+          const data = await response.json();
+          if (data.tag_name) {
+            // Remove 'v' prefix if present
+            const version = data.tag_name.startsWith('v') ? data.tag_name.substring(1) : data.tag_name;
+            setLatestVersion(version);
+          }
+        }
+      } catch (error) {
+        console.error('Error checking latest version:', error);
+      } finally {
+        setCheckingForUpdates(false);
+      }
+    };
+
     checkExtension();
+    checkLatestVersion();
+    
     const extensionCheckInterval = setInterval(checkExtension, 10000);
     
     return () => {
@@ -151,9 +180,57 @@ const BrowserTools = () => {
     }
   };
 
-  const handleInstallExtension = () => {
-    // This would be the URL to your extension in the Chrome Web Store
-    window.open('https://chrome.google.com/webstore/detail/devdock-browser-monitor/extension-id', '_blank');
+  const handleInstallExtension = async () => {
+    try {
+      // Check for the latest version before installation
+      setCheckingForUpdates(true);
+      const response = await fetch('https://api.github.com/repos/AgentDeskAI/browser-tools-mcp/releases/latest');
+      
+      if (!response.ok) {
+        throw new Error(`GitHub API error: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      let downloadUrl = '';
+      let version = '';
+      
+      if (data.assets && data.assets.length > 0) {
+        // Find the extension zip file in the assets
+        const extensionAsset = data.assets.find(asset => 
+          asset.name.includes('extension') && asset.name.endsWith('.zip')
+        );
+        
+        if (extensionAsset) {
+          downloadUrl = extensionAsset.browser_download_url;
+          version = data.tag_name || 'latest';
+          setLatestVersion(version.startsWith('v') ? version.substring(1) : version);
+        }
+      }
+      
+      // If we found a download URL, use it; otherwise fall back to the hardcoded URL
+      const finalUrl = downloadUrl || 'https://github.com/AgentDeskAI/browser-tools-mcp/releases/download/v1.2.0/BrowserTools-1.2.0-extension.zip';
+      
+      // Open the download URL in a new tab
+      window.open(finalUrl, '_blank');
+      
+      // Show installation instructions
+      alert(`
+        Extension Download Instructions:
+        1. The extension zip file will download automatically
+        2. Unzip the downloaded file
+        3. In Chrome, go to chrome://extensions/
+        4. Enable "Developer mode" (top right)
+        5. Click "Load unpacked" and select the unzipped "chrome-extension" folder
+        6. Refresh this page after installation
+      `);
+      
+    } catch (error) {
+      console.error('Error getting latest release:', error);
+      // Fall back to the hardcoded URL if there's an error
+      window.open('https://github.com/AgentDeskAI/browser-tools-mcp/releases/download/v1.2.0/BrowserTools-1.2.0-extension.zip', '_blank');
+    } finally {
+      setCheckingForUpdates(false);
+    }
   };
 
   return (
@@ -173,23 +250,44 @@ const BrowserTools = () => {
             {extensionCheckLoading ? (
               <div className="extension-status loading">Checking...</div>
             ) : extensionInstalled ? (
-              <div className="extension-status connected">Connected</div>
+              <div className="extension-status connected">
+                Connected {extensionVersion && `(v${extensionVersion})`}
+                {latestVersion && extensionVersion && latestVersion !== extensionVersion && (
+                  <span className="update-available"> Update available: v{latestVersion}</span>
+                )}
+              </div>
             ) : (
-              <div className="extension-status disconnected">Not Installed</div>
+              <div className="extension-status disconnected">
+                Not Installed
+                {latestVersion && <span className="latest-version"> (Latest: v{latestVersion})</span>}
+              </div>
             )}
           </div>
           <p>
             The Browser Monitoring Tool requires a Chrome extension to capture logs, errors, and network activity from your browser.
           </p>
-          {!extensionInstalled && (
+          {!extensionInstalled ? (
             <button 
               className="extension-install-btn" 
               onClick={handleInstallExtension}
+              disabled={checkingForUpdates}
             >
-              Install Chrome Extension
+              {checkingForUpdates ? 'Checking for updates...' : 'Install Chrome Extension'}
             </button>
-          )}
-          {extensionInstalled && (
+          ) : latestVersion && extensionVersion && latestVersion !== extensionVersion ? (
+            <div>
+              <p className="extension-success">
+                Extension is installed and connected! Browser activity is now being monitored.
+              </p>
+              <button 
+                className="extension-update-btn" 
+                onClick={handleInstallExtension}
+                disabled={checkingForUpdates}
+              >
+                {checkingForUpdates ? 'Checking for updates...' : `Update to v${latestVersion}`}
+              </button>
+            </div>
+          ) : (
             <p className="extension-success">
               Extension is installed and connected! Browser activity is now being monitored.
             </p>
@@ -696,7 +794,13 @@ const BrowserTools = () => {
           background-color: #ffc107;
         }
         
-        .extension-install-btn {
+        .update-available, .latest-version {
+          margin-left: 5px;
+          font-size: 0.8rem;
+          color: #ffc107;
+        }
+        
+        .extension-install-btn, .extension-update-btn {
           background-color: #4a6cf7;
           color: white;
           border: none;
@@ -707,8 +811,23 @@ const BrowserTools = () => {
           transition: background-color 0.2s;
         }
         
+        .extension-update-btn {
+          background-color: #ffc107;
+          color: #212529;
+          margin-top: 10px;
+        }
+        
         .extension-install-btn:hover {
           background-color: #3a5bd7;
+        }
+        
+        .extension-update-btn:hover {
+          background-color: #e0a800;
+        }
+        
+        .extension-install-btn:disabled, .extension-update-btn:disabled {
+          background-color: #6c757d;
+          cursor: not-allowed;
         }
         
         .extension-success {

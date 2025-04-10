@@ -302,7 +302,7 @@
       justify-content: flex-start;
     }
     
-    .install-button {
+    .install-button, .update-button {
       padding: 8px 16px;
       border-radius: 4px;
       border: none;
@@ -315,7 +315,13 @@
       align-items: center;
     }
     
-    .install-button svg {
+    .update-button {
+      background-color: var(--warning);
+      color: var(--dark);
+      margin-left: 10px;
+    }
+    
+    .install-button svg, .update-button svg {
       margin-right: 8px;
     }
     
@@ -323,9 +329,41 @@
       background-color: #3a5bd7;
     }
     
+    .update-button:hover {
+      background-color: #e0a800;
+    }
+    
+    .install-button:disabled, .update-button:disabled {
+      background-color: var(--secondary);
+      cursor: not-allowed;
+    }
+    
     .extension-success {
       color: var(--success);
       font-weight: 500;
+    }
+    
+    .version-info {
+      display: flex;
+      align-items: center;
+      margin-top: 10px;
+      font-size: 0.85rem;
+    }
+    
+    .current-version {
+      margin-right: 15px;
+      color: var(--dark);
+    }
+    
+    .latest-version {
+      color: var(--warning);
+    }
+    
+    .checking-message {
+      color: var(--secondary);
+      font-style: italic;
+      margin-top: 10px;
+      font-size: 0.85rem;
     }
   </style>
 </head>
@@ -357,10 +395,17 @@
           <p>Installing the extension allows:</p>
           <ul>
             <li>Automatic capture of console logs and errors</li>
-            <li>Network request monitoring</li>
+            <li>Network request and response tracking</li>
             <li>Performance metrics collection</li>
             <li>Real-time browser event tracking</li>
           </ul>
+        </div>
+        <div id="version-info" class="version-info" style="display: none;">
+          <div id="current-version" class="current-version"></div>
+          <div id="latest-version" class="latest-version"></div>
+        </div>
+        <div id="checking-message" class="checking-message" style="display: none;">
+          Checking for latest version...
         </div>
       </div>
       <div class="extension-actions" id="extension-actions">
@@ -665,6 +710,15 @@
     const extensionStatusText = document.getElementById('extension-status-text');
     const extensionActions = document.getElementById('extension-actions');
     const installExtensionBtn = document.getElementById('install-extension-btn');
+    const versionInfoDiv = document.getElementById('version-info');
+    const currentVersionDiv = document.getElementById('current-version');
+    const latestVersionDiv = document.getElementById('latest-version');
+    const checkingMessageDiv = document.getElementById('checking-message');
+    
+    let extensionVersion = '';
+    let latestExtensionVersion = '';
+    let latestExtensionUrl = 'https://github.com/AgentDeskAI/browser-tools-mcp/releases/download/v1.2.0/BrowserTools-1.2.0-extension.zip';
+    let isCheckingForUpdates = false;
     
     // Function to check if the extension is installed
     function checkExtensionStatus() {
@@ -675,6 +729,7 @@
             { action: 'checkConnection' },
             function(response) {
               if (response && response.connected) {
+                extensionVersion = response.version || '';
                 setExtensionInstalled(true);
               } else {
                 setExtensionNotInstalled();
@@ -696,17 +751,109 @@
       }
     }
     
-    function setExtensionInstalled(installed) {
+    // Function to check for the latest version from GitHub
+    async function checkLatestVersion() {
+      try {
+        isCheckingForUpdates = true;
+        checkingMessageDiv.style.display = 'block';
+        
+        const response = await fetch('https://api.github.com/repos/AgentDeskAI/browser-tools-mcp/releases/latest');
+        
+        if (!response.ok) {
+          throw new Error(`GitHub API error: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        
+        if (data.tag_name) {
+          // Remove 'v' prefix if present
+          latestExtensionVersion = data.tag_name.startsWith('v') 
+            ? data.tag_name.substring(1) 
+            : data.tag_name;
+            
+          // Update the UI with the latest version
+          latestVersionDiv.textContent = `Latest version: v${latestExtensionVersion}`;
+          
+          // Find the extension zip file in the assets
+          if (data.assets && data.assets.length > 0) {
+            const extensionAsset = data.assets.find(asset => 
+              asset.name.includes('extension') && asset.name.endsWith('.zip')
+            );
+            
+            if (extensionAsset && extensionAsset.browser_download_url) {
+              latestExtensionUrl = extensionAsset.browser_download_url;
+            }
+          }
+          
+          // Update UI based on version comparison
+          updateVersionUI();
+        }
+      } catch (error) {
+        console.error('Error checking latest version:', error);
+      } finally {
+        isCheckingForUpdates = false;
+        checkingMessageDiv.style.display = 'none';
+      }
+    }
+    
+    // Update the UI based on version information
+    function updateVersionUI() {
+      // If we have both version numbers and the extension is installed
+      if (extensionVersion && latestExtensionVersion && extensionIndicator.classList.contains('installed')) {
+        versionInfoDiv.style.display = 'flex';
+        currentVersionDiv.textContent = `Current version: v${extensionVersion}`;
+        
+        // Check if an update is available
+        if (extensionVersion !== latestExtensionVersion) {
+          // Show update button if newer version is available
+          extensionActions.innerHTML = `
+            <p class="extension-success">Extension is installed and connected!</p>
+            <button class="update-button" onclick="installExtension()">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                <path d="M8 3.5a.5.5 0 0 0-1 0V9a.5.5 0 0 0 .252.434l3.5 2a.5.5 0 0 0 .496-.868L8 8.71V3.5z"/>
+                <path d="M8 16A8 8 0 1 0 8 0a8 8 0 0 0 0 16zm7-8A7 7 0 1 1 1 8a7 7 0 0 1 14 0z"/>
+              </svg>
+              Update to v${latestExtensionVersion}
+            </button>
+          `;
+        } else {
+          // Just show success message if on the latest version
+          extensionActions.innerHTML = `
+            <p class="extension-success">Extension is installed and connected with the latest version!</p>
+          `;
+        }
+      } else if (!extensionIndicator.classList.contains('installed') && latestExtensionVersion) {
+        // Show latest version info if extension not installed
+        versionInfoDiv.style.display = 'flex';
+        latestVersionDiv.textContent = `Latest version: v${latestExtensionVersion}`;
+        currentVersionDiv.textContent = '';
+      }
+    }
+    
+    function setExtensionInstalled() {
       extensionIndicator.classList.remove('checking', 'not-installed');
       extensionIndicator.classList.add('installed');
       extensionStatusText.textContent = 'Connected';
       
-      // Update the actions section
-      extensionActions.innerHTML = `
-        <p class="extension-success">
-          Extension is installed and connected! Browser activity is now being monitored.
-        </p>
-      `;
+      // Update version information
+      if (extensionVersion) {
+        versionInfoDiv.style.display = 'flex';
+        currentVersionDiv.textContent = `Current version: v${extensionVersion}`;
+        
+        // Check if we already have the latest version info
+        if (latestExtensionVersion) {
+          updateVersionUI();
+        }
+      }
+      
+      // Update the actions section if we don't have the latest version info yet
+      if (!latestExtensionVersion) {
+        extensionActions.innerHTML = `
+          <p class="extension-success">
+            Extension is installed and connected! Browser activity is now being monitored.
+          </p>
+        `;
+      }
     }
     
     function setExtensionNotInstalled() {
@@ -714,25 +861,54 @@
       extensionIndicator.classList.add('not-installed');
       extensionStatusText.textContent = 'Not Installed';
       
+      // Show the latest version info if available
+      if (latestExtensionVersion) {
+        versionInfoDiv.style.display = 'flex';
+        latestVersionDiv.textContent = `Latest version: v${latestExtensionVersion}`;
+        currentVersionDiv.textContent = '';
+      } else {
+        versionInfoDiv.style.display = 'none';
+      }
+      
       // Show the install button
       extensionActions.innerHTML = `
-        <button class="install-button" id="install-extension-btn" onclick="installExtension()">
+        <button class="install-button" id="install-extension-btn" onclick="installExtension()" ${isCheckingForUpdates ? 'disabled' : ''}>
           <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
             <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"/>
             <path d="M8 4a.5.5 0 0 1 .5.5v3h3a.5.5 0 0 1 0 1h-3v3a.5.5 0 0 1-1 0v-3h-3a.5.5 0 0 1 0-1h3v-3A.5.5 0 0 1 8 4z"/>
           </svg>
-          Install Chrome Extension
+          ${isCheckingForUpdates ? 'Checking for updates...' : 'Install Chrome Extension'}
         </button>
       `;
+      
+      // Re-assign the event listener to the new button
+      const newInstallBtn = document.getElementById('install-extension-btn');
+      if (newInstallBtn) {
+        newInstallBtn.addEventListener('click', installExtension);
+      }
     }
     
     function installExtension() {
-      // This would be the URL to your extension in the Chrome Web Store
-      window.open('https://chrome.google.com/webstore/detail/devdock-browser-monitor/extension-id', '_blank');
+      // Always open the latest URL
+      window.open(latestExtensionUrl, '_blank');
+      
+      // Show installation instructions
+      alert(`
+Extension Download Instructions:
+1. The extension zip file will download automatically
+2. Unzip the downloaded file
+3. In Chrome, go to chrome://extensions/
+4. Enable "Developer mode" (top right)
+5. Click "Load unpacked" and select the unzipped "chrome-extension" folder
+6. Refresh this page after installation
+      `);
     }
     
     // Check extension status on page load
     checkExtensionStatus();
+    
+    // Check for the latest version on page load
+    checkLatestVersion();
     
     // Check extension status every 10 seconds
     setInterval(checkExtensionStatus, 10000);
