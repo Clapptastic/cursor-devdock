@@ -1,0 +1,17 @@
+server:
+  host: 0.0.0.0
+  port: 8000
+
+# List of APIs registered with MCP
+apis:
+  - name: claude-task-master
+    url: http://claude-task-master:8002
+    description: AI Task Routing Service
+  
+  - name: scraper
+    url: http://scraper:8003
+    description: Web Scraping Service
+  
+  - name: browser-tools
+    url: http://browser-tools:8004
+    description: Browser Monitoring Tools 
