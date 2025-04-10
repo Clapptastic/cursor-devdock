@@ -16,6 +16,7 @@ const Navbar: React.FC = () => {
     { path: '/service-status', label: 'Service Status' },
     { path: '/docs', label: 'Documentation' },
     { path: '/renovate', label: 'Dependency Manager' },
+    { path: '/todo', label: 'Task Manager' },
   ];
   
   const isActive = (path: string) => router.pathname === path;
