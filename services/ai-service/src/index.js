@@ -9,6 +9,7 @@ const cors = require('cors');
 const helmet = require('helmet');
 const morgan = require('morgan');
 const dotenv = require('dotenv');
+const { successResponse, errorResponse } = require('./utils/responseHelper');
 
 // Load environment variables
 dotenv.config();
@@ -26,7 +27,13 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // Health check endpoint
 app.get('/health', (req, res) => {
-  res.status(200).json({ status: 'UP', service: 'ai-service' });
+  res.setHeader('Content-Type', 'application/json');
+  res.status(200).json({
+    status: 'success',
+    service: 'ai-service',
+    message: 'Service is running',
+    timestamp: new Date().toISOString()
+  });
 });
 
 // Mock NLP functions
@@ -82,17 +89,20 @@ const extractKeyPhrases = (text) => {
 app.post('/analyze/text', (req, res) => {
   const { text } = req.body;
   
-  if (!text) {
-    return res.status(400).json({ error: 'Text input is required' });
+  if (typeof text !== 'string') {
+    res.setHeader('Content-Type', 'application/json');
+    return res.status(400).json({ error: 'Text input must be a string' });
   }
   
   const sentiment = generateSentiment(text);
   const keyPhrases = extractKeyPhrases(text);
   
+  res.setHeader('Content-Type', 'application/json');
   res.status(200).json({
+    success: true,
     sentiment,
     keyPhrases,
-    wordCount: text.split(' ').length,
+    wordCount: text.split(' ').filter(word => word.length > 0).length,
     analysisTimestamp: new Date().toISOString()
   });
 });
@@ -102,16 +112,16 @@ app.post('/insights', (req, res) => {
   const { responses } = req.body;
   
   if (!responses || !Array.isArray(responses) || responses.length === 0) {
+    res.setHeader('Content-Type', 'application/json');
     return res.status(400).json({ error: 'Valid responses array is required' });
   }
   
-  // Generate mock insights
   const textResponses = responses.filter(r => 
-    r.responses && r.responses.some(a => typeof a.value === 'string' && a.value.length > 5)
+    r.responses && Array.isArray(r.responses) && r.responses.some(a => typeof a.value === 'string' && a.value.length > 5)
   );
   
   const ratingResponses = responses.filter(r => 
-    r.responses && r.responses.some(a => typeof a.value === 'number')
+    r.responses && Array.isArray(r.responses) && r.responses.some(a => typeof a.value === 'number')
   );
   
   const insights = {
@@ -127,7 +137,6 @@ app.post('/insights', (req, res) => {
     }
   };
   
-  // Process text responses to extract sentiment and topics
   if (textResponses.length > 0) {
     let totalSentiment = 0;
     const topicsMap = {};
@@ -146,12 +155,10 @@ app.post('/insights', (req, res) => {
       });
     });
     
-    // Calculate average sentiment
     insights.responseAnalysis.averageSentiment = parseFloat(
       (totalSentiment / textResponses.length).toFixed(2)
     );
     
-    // Sort topics by frequency
     const sortedTopics = Object.entries(topicsMap)
       .sort((a, b) => b[1] - a[1])
       .map(([topic]) => topic)
@@ -159,7 +166,6 @@ app.post('/insights', (req, res) => {
     
     insights.responseAnalysis.commonTopics = sortedTopics;
     
-    // Generate mock key takeaways
     if (insights.responseAnalysis.averageSentiment > 0.2) {
       insights.responseAnalysis.keyTakeaways.push(
         "Overall positive sentiment detected in responses",
@@ -177,7 +183,6 @@ app.post('/insights', (req, res) => {
       );
     }
     
-    // Add common topics to key takeaways
     if (sortedTopics.length > 0) {
       insights.responseAnalysis.keyTakeaways.push(
         `Multiple mentions of "${sortedTopics[0]}" in responses`
@@ -185,7 +190,6 @@ app.post('/insights', (req, res) => {
     }
   }
   
-  // Generate improvement areas based on ratings
   if (ratingResponses.length > 0) {
     const questionRatings = {};
     
@@ -201,117 +205,142 @@ app.post('/insights', (req, res) => {
       });
     });
     
-    // Find questions with low average ratings
-    const improvementAreas = [];
-    Object.entries(questionRatings).forEach(([questionId, data]) => {
-      const average = data.sum / data.count;
-      if (average < 3) {
-        improvementAreas.push({
-          questionId,
-          averageRating: parseFloat(average.toFixed(2))
-        });
+    Object.entries(questionRatings).forEach(([questionId, { sum, count }]) => {
+      const averageRating = sum / count;
+      if (averageRating < 3) {
+        insights.improvement.areas.push(`Improve question ${questionId}`);
+        insights.improvement.suggestions.push(`Consider revising question ${questionId} to better capture user feedback.`);
       }
     });
-    
-    insights.improvement.areas = improvementAreas.map(area => 
-      `Question ID ${area.questionId} (avg: ${area.averageRating})`
-    );
-    
-    if (improvementAreas.length > 0) {
-      insights.improvement.suggestions.push(
-        "Focus on improving areas with consistently low ratings",
-        "Consider revising aspects mentioned in negative feedback",
-        "Implement regular follow-ups with dissatisfied respondents"
-      );
-    } else {
-      insights.improvement.suggestions.push(
-        "Maintain current quality standards",
-        "Consider introducing new features requested by users",
-        "Share positive feedback with the team to boost morale"
-      );
-    }
   }
   
-  res.status(200).json(insights);
+  res.setHeader('Content-Type', 'application/json');
+  res.status(200).json({
+    success: true,
+    insights
+  });
 });
 
 // Generate survey recommendations
 app.post('/recommend/survey', (req, res) => {
   const { industry, target, goals } = req.body;
   
-  if (!industry || !target || !goals) {
-    return res.status(400).json({ 
-      error: 'Missing required parameters. Please provide industry, target audience, and goals' 
-    });
+  if (!industry || !target || !Array.isArray(goals) || goals.length === 0) {
+    res.setHeader('Content-Type', 'application/json');
+    return res.status(400).json({ error: 'Missing required parameters' });
   }
   
-  // Mock survey recommendation generation
-  const recommendations = {
-    surveyTitle: `${industry} Customer Experience Survey`,
-    estimatedCompletionTime: '5-7 minutes',
-    recommendedQuestions: [
-      {
-        id: '1',
-        text: `How would you rate your overall experience with our ${industry} services?`,
-        type: 'rating',
-        required: true
-      },
-      {
-        id: '2',
-        text: 'What aspects of our service did you find most valuable?',
-        type: 'text',
-        required: true
-      },
-      {
-        id: '3',
-        text: 'What improvements would you suggest to make our service better?',
-        type: 'text',
-        required: false
-      },
-      {
-        id: '4',
-        text: `How likely are you to recommend our ${industry} services to others?`,
-        type: 'rating',
-        required: true
-      },
-      {
-        id: '5',
-        text: 'Would you be interested in learning about our upcoming products/services?',
-        type: 'boolean',
-        required: false
-      }
-    ],
-    bestPractices: [
-      'Keep the survey concise and focused on key areas',
-      'Begin with easy questions to increase completion rate',
-      'Include a mix of quantitative and qualitative questions',
-      'Ensure your survey is mobile-friendly',
-      'Follow up with respondents to close the feedback loop'
-    ]
-  };
+  const recommendedQuestions = goals.map(goal => {
+    switch (goal) {
+      case 'customer_satisfaction':
+        return { text: 'How satisfied are you with our product?', type: 'rating' };
+      case 'product_feedback':
+        return { text: 'What features would you like to see added?', type: 'text' };
+      default:
+        return { text: 'Please provide your feedback.', type: 'text' };
+    }
+  });
   
-  // Customize based on goals
-  if (goals.includes('customer_satisfaction')) {
-    recommendations.recommendedQuestions.push({
-      id: '6',
-      text: 'What factors influenced your satisfaction level the most?',
-      type: 'multiple_choice',
-      options: ['Product quality', 'Customer service', 'Price', 'Ease of use', 'Other'],
-      required: true
-    });
+  const bestPractices = [
+    'Keep surveys short and focused',
+    'Use clear and concise language',
+    'Offer incentives for completion'
+  ];
+  
+  res.setHeader('Content-Type', 'application/json');
+  res.status(200).json({
+    success: true,
+    surveyTitle: `${industry} Survey for ${target}`,
+    estimatedCompletionTime: '5 minutes',
+    recommendedQuestions,
+    bestPractices
+  });
+});
+
+// Generate survey questions
+app.post('/generate-questions', async (req, res) => {
+  try {
+    const { industry, businessStage, customerSegment, topic, count = 10 } = req.body;
+    const questions = await require('./services/aiService').generateQuestions(
+      industry, businessStage, customerSegment, topic, count
+    );
+    res.setHeader('Content-Type', 'application/json');
+    res.status(200).json(successResponse(questions, `Successfully generated ${questions.length} questions for ${topic}`));
+  } catch (error) {
+    res.setHeader('Content-Type', 'application/json');
+    res.status(500).json(errorResponse(error.message));
   }
-  
-  if (goals.includes('product_feedback')) {
-    recommendations.recommendedQuestions.push({
-      id: '7',
-      text: 'Which features do you use most frequently?',
-      type: 'multiple_choice',
-      options: ['Feature A', 'Feature B', 'Feature C', 'Feature D', 'Other'],
-      required: true
-    });
+});
+
+// Improve a question
+app.post('/improve-question', async (req, res) => {
+  try {
+    const { question, context } = req.body;
+    const improved = await require('./services/aiService').improveQuestion(question, context);
+    res.setHeader('Content-Type', 'application/json');
+    res.status(200).json(successResponse(improved, 'Question successfully improved'));
+  } catch (error) {
+    res.setHeader('Content-Type', 'application/json');
+    res.status(500).json(errorResponse(error.message));
   }
-  
-  res.status(200).json(recommendations);
+});
+
+// Translate survey questions
+app.post('/translate-survey', async (req, res) => {
+  try {
+    const { questions, targetLanguage } = req.body;
+    const translated = await require('./services/aiService').translateSurvey(questions, targetLanguage);
+    res.setHeader('Content-Type', 'application/json');
+    res.status(200).json(successResponse(translated, `Successfully translated ${translated.length} questions to ${targetLanguage}`));
+  } catch (error) {
+    res.setHeader('Content-Type', 'application/json');
+    res.status(500).json(errorResponse(error.message));
+  }
+});
+
+// Analyze survey responses
+app.post('/analyze-responses', async (req, res) => {
+  try {
+    const { survey_id, includeResponses = true } = req.body;
+    const analysis = await require('./services/aiService').analyzeResponses(survey_id, includeResponses);
+    res.setHeader('Content-Type', 'application/json');
+    res.status(200).json(successResponse(analysis, 'Survey responses analyzed successfully'));
+  } catch (error) {
+    res.setHeader('Content-Type', 'application/json');
+    res.status(500).json(errorResponse(error.message));
+  }
+});
+
+// Extract themes from survey responses
+app.post('/extract-themes', async (req, res) => {
+  try {
+    const { survey_id, options = {} } = req.body;
+    const themes = await require('./services/aiService').extractThemes(survey_id, options);
+    res.setHeader('Content-Type', 'application/json');
+    res.status(200).json(successResponse(themes, 'Themes extracted successfully'));
+  } catch (error) {
+    res.setHeader('Content-Type', 'application/json');
+    res.status(500).json(errorResponse(error.message));
+  }
+});
+
+// Generate insights from survey data
+app.post('/generate-insights', async (req, res) => {
+  try {
+    const { survey_id } = req.body;
+    const insights = await require('./services/aiService').generateInsights(survey_id);
+    res.setHeader('Content-Type', 'application/json');
+    res.status(200).json(successResponse(insights, 'Insights generated successfully'));
+  } catch (error) {
+    res.setHeader('Content-Type', 'application/json');
+    res.status(500).json(errorResponse(error.message));
+  }
+});
+
+// Fallback for undefined routes
+app.use((req, res) => {
+  res.setHeader('Content-Type', 'application/json');
+  res.status(404).json({ success: false, error: { message: 'Route not found' } });
 });
 
 // Start the server

@@ -1,30 +1,26 @@
-FROM node:18-alpine
-
-# Create app directory
+# ---- Builder Stage ----
+FROM node:18-alpine AS builder
 WORKDIR /app
-
-# Install app dependencies
-# A wildcard is used to ensure both package.json AND package-lock.json are copied
 COPY package*.json ./
-
-# Install dependencies and clean npm cache to reduce image size
+# Install all dependencies needed for build (if any) and production
 RUN npm ci || npm install
-
-# Bundle app source
 COPY . .
+# Optional: Add build step here if needed (e.g., RUN npm run build)
 
+# ---- Production Stage ----
+FROM node:18-alpine
+WORKDIR /app
+COPY package*.json ./
+# Install only production dependencies and clean cache
+RUN npm ci --omit=dev || npm install --omit=dev && npm cache clean --force
+# Copy necessary source code from builder stage
+COPY --from=builder /app/src ./src
+COPY --from=builder /app/index.js ./
 # Create log directory and set permissions
 RUN mkdir -p logs && chmod -R 755 logs
-
-# Set environment variables
 ENV NODE_ENV=production
 ENV PORT=3003
-
-# Expose the service port
 EXPOSE 3003
-
-# Set non-root user for security
 USER node
-
-# Start the service
+# Start the service using node directly if package.json's start script is simple, or use npm start
 CMD ["npm", "start"] 

@@ -130,6 +130,16 @@ describe('AI Service API', () => {
       expect(response.statusCode).toBe(200);
       expect(response.body.wordCount).toBeGreaterThan(1000);
     });
+
+    it('should handle invalid data types for text input', async () => {
+      const response = await request(app)
+        .post('/analyze/text')
+        .send({ text: 12345 }); // Invalid data type
+      
+      expect(response.statusCode).toBe(400);
+      expect(response.body).toHaveProperty('error');
+      expect(response.body.error).toBe('Text input must be a string');
+    });
   });
 
   describe('POST /insights', () => {

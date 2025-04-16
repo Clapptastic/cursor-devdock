@@ -37,14 +37,10 @@ class MCPServer {
     this.retryAttempts = config.retryAttempts;
     this.app = express();
     this.server = null;
-    this.setupMiddleware();
     this.setupRoutes();
   }
 
-  setupMiddleware() {
-    // Parse JSON request bodies
-    this.app.use(express.json());
-    
+  setupRoutes() {
     // Log requests if logging is enabled
     if (this.logEnabled) {
       this.app.use((req, res, next) => {
@@ -52,20 +48,7 @@ class MCPServer {
         next();
       });
     }
-    
-    // CORS headers for Cursor to access
-    this.app.use((req, res, next) => {
-      res.header('Access-Control-Allow-Origin', '*');
-      res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-      res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
-      if (req.method === 'OPTIONS') {
-        return res.sendStatus(200);
-      }
-      next();
-    });
-  }
 
-  setupRoutes() {
     // Health check endpoint
     this.app.get('/health', (req, res) => {
       res.status(200).json({ status: 'ok', server: this.name });
@@ -78,47 +61,16 @@ class MCPServer {
         name: this.name,
         uptime: process.uptime(),
         memoryUsage: process.memoryUsage(),
-        cpuUsage: process.cpuUsage(),
-        status: 'running'
+        cpuUsage: process.cpuUsage()
       });
     });
 
-    // Cursor MCP protocol endpoints
+    // Sample MCP API endpoint
     this.app.post('/api/process', (req, res) => {
-      const { prompt, options } = req.body || {};
-      
-      // Log the received prompt if logging is enabled
-      if (this.logEnabled && prompt) {
-        console.log(`[${this.name}] Processing prompt: ${prompt.substring(0, 50)}...`);
-      }
-      
       res.status(200).json({
         success: true,
-        serverId: this.id,
-        serverName: this.name,
         message: `Processed by MCP server: ${this.name}`,
-        timestamp: new Date().toISOString(),
-        promptLength: prompt ? prompt.length : 0,
-        result: {
-          text: `Response from ${this.name}: ${prompt ? 'Processed your prompt of ' + prompt.length + ' characters' : 'No prompt provided'}`,
-          metadata: {
-            model: `${this.name}-model`,
-            tokenCount: prompt ? Math.ceil(prompt.length / 4) : 0,
-            processingTime: Math.random() * 1000
-          }
-        }
-      });
-    });
-
-    // Cursor connection verification endpoint
-    this.app.get('/api/info', (req, res) => {
-      res.status(200).json({
-        name: this.name,
-        id: this.id,
-        version: '1.0.0',
-        capabilities: ['text-processing', 'code-completion', 'context-aware'],
-        status: 'ready',
-        models: [`${this.id}-model`]
+        timestamp: new Date().toISOString()
       });
     });
 
@@ -241,4 +193,4 @@ const deployServers = () => {
 };
 
 // Start deployment
-deployServers(); 
+deployServers();
