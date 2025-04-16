@@ -28,12 +28,12 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 // Health check endpoint
 app.get('/health', (req, res) => {
   res.setHeader('Content-Type', 'application/json');
-  res.status(200).json({
+  res.status(200).json(successResponse({
     status: 'success',
     service: 'ai-service',
     message: 'Service is running',
     timestamp: new Date().toISOString()
-  });
+  }));
 });
 
 // Mock NLP functions
@@ -289,7 +289,8 @@ function mockInsightsLogic(responses) {
   if (hasText) {
     averageSentiment = 0.1; // Neutral/Mixed
     keyTakeaways.push("Mixed or neutral sentiment detected in responses");
-    if (responses.some(r => r.responses?.some(a => a.value?.toLowerCase().includes('bad')))) {
+    // Check if any response contains negative text, safely handling non-strings
+    if (responses.some(r => r.responses?.some(a => typeof a.value === 'string' && a.value.toLowerCase().includes('bad')))) {
         averageSentiment = -0.5;
         keyTakeaways = ["Overall negative sentiment detected in responses"];
     }

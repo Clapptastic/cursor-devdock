@@ -6,16 +6,30 @@ const request = require('supertest');
 const app = require('../../src/index');
 
 describe('AI Service API', () => {
+  let server;
+
+  beforeAll((done) => {
+    // Start server on a random port for integration tests
+    server = app.listen(0, done);
+  });
+
+  afterAll((done) => {
+    server.close(done);
+  });
+
   describe('Health Check', () => {
     it('should return 200 OK for health check endpoint', async () => {
-      const response = await request(app)
+      const response = await request(server)
         .get('/health')
         .expect('Content-Type', /json/)
         .expect(200);
       
-      expect(response.body).toHaveProperty('status', 'success');
-      expect(response.body).toHaveProperty('message');
-      expect(response.body).toHaveProperty('timestamp');
+      // Check the successResponse structure
+      expect(response.body).toHaveProperty('success', true);
+      expect(response.body).toHaveProperty('data');
+      expect(response.body.data).toHaveProperty('status', 'success');
+      expect(response.body.data).toHaveProperty('message');
+      expect(response.body.data).toHaveProperty('timestamp');
     });
   });
   
@@ -29,7 +43,7 @@ describe('AI Service API', () => {
         count: 5
       };
       
-      const response = await request(app)
+      const response = await request(server)
         .post('/generate-questions')
         .send(requestBody)
         .expect('Content-Type', /json/)
@@ -48,7 +62,7 @@ describe('AI Service API', () => {
         industry: 'SaaS'
       };
       
-      const response = await request(app)
+      const response = await request(server)
         .post('/generate-questions')
         .send(requestBody)
         .expect('Content-Type', /json/)
@@ -67,7 +81,7 @@ describe('AI Service API', () => {
         context: 'SaaS platform'
       };
       
-      const response = await request(app)
+      const response = await request(server)
         .post('/improve-question')
         .send(requestBody)
         .expect('Content-Type', /json/)
@@ -95,7 +109,7 @@ describe('AI Service API', () => {
         targetLanguage: 'Spanish'
       };
       
-      const response = await request(app)
+      const response = await request(server)
         .post('/translate-survey')
         .send(requestBody)
         .expect('Content-Type', /json/)
@@ -116,7 +130,7 @@ describe('AI Service API', () => {
         includeResponses: true
       };
       
-      const response = await request(app)
+      const response = await request(server)
         .post('/analyze-responses')
         .send(requestBody)
         .expect('Content-Type', /json/)
@@ -142,7 +156,7 @@ describe('AI Service API', () => {
         }
       };
       
-      const response = await request(app)
+      const response = await request(server)
         .post('/extract-themes')
         .send(requestBody)
         .expect('Content-Type', /json/)
@@ -165,7 +179,7 @@ describe('AI Service API', () => {
         }
       };
       
-      const response = await request(app)
+      const response = await request(server)
         .post('/generate-insights')
         .send(requestBody)
         .expect('Content-Type', /json/)
@@ -183,7 +197,7 @@ describe('AI Service API', () => {
   
   describe('Error Handling', () => {
     it('should return 404 for non-existent routes', async () => {
-      const response = await request(app)
+      const response = await request(server)
         .get('/non-existent-route')
         .expect('Content-Type', /json/)
         .expect(404);
