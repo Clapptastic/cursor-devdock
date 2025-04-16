@@ -13,14 +13,13 @@ WORKDIR /app
 COPY package*.json ./
 # Install only production dependencies and clean cache
 RUN npm ci --omit=dev || npm install --omit=dev && npm cache clean --force
-# Copy necessary source code from builder stage
+# Copy necessary source code and entrypoint from builder stage
 COPY --from=builder /app/src ./src
-COPY --from=builder /app/index.js ./
-# Create log directory and set permissions
+# Assuming the entrypoint is src/index.js
 RUN mkdir -p logs && chmod -R 755 logs
 ENV NODE_ENV=production
 ENV PORT=3003
 EXPOSE 3003
 USER node
-# Start the service using node directly if package.json's start script is simple, or use npm start
-CMD ["npm", "start"] 
+# Adjust CMD if entrypoint is different
+CMD ["node", "src/index.js"] 
