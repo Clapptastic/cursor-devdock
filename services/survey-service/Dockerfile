@@ -12,12 +12,13 @@ WORKDIR /app
 COPY package*.json ./
 # Install only production dependencies and clean cache
 RUN npm ci --omit=dev || npm install --omit=dev && npm cache clean --force
-# Copy necessary source code from builder stage
+# Copy necessary source code and entrypoint from builder stage
 COPY --from=builder /app/src ./src
-COPY --from=builder /app/index.js ./
+# Assuming the entrypoint is src/server.js
 RUN mkdir -p logs && chmod -R 755 logs
 ENV NODE_ENV=production
 ENV PORT=3001
 EXPOSE 3001
 USER node
-CMD ["npm", "start"] 
+# Adjust CMD if entrypoint is different
+CMD ["node", "src/server.js"] 
